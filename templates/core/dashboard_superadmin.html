@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Platform Admin — SchoolHub{% endblock %}
+{% block page_title %}Platform Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+
+    <!-- Welcome header -->
+    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-800 to-slate-900 p-6 lg:p-8 text-white">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4"></div>
+        <div class="relative">
+            <h2 class="text-xl lg:text-2xl font-bold">Platform Overview</h2>
+            <p class="mt-1 text-slate-300 text-sm">Managing all schools on the platform.</p>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">Total Schools</p>
+                    <p class="mt-1 text-3xl font-bold text-gray-900">{{ schools|length }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center">
+                    <i data-lucide="building-2" class="w-6 h-6 text-primary-600"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">Total Users</p>
+                    <p class="mt-1 text-3xl font-bold text-gray-900">{{ total_users }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center">
+                    <i data-lucide="users" class="w-6 h-6 text-emerald-600"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Schools table -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100">
+            <h3 class="text-base font-bold text-gray-900">All Schools</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">School</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Plan</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Created</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for school in schools %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-lg bg-primary-100 flex items-center justify-center flex-shrink-0">
+                                    <span class="text-sm font-bold text-primary-700">{{ school.name|first|upper }}</span>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-semibold text-gray-900">{{ school.name }}</p>
+                                    <p class="text-xs text-gray-400">{{ school.slug }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
+                                {% if school.plan == 'premium' %}bg-amber-50 text-amber-700
+                                {% elif school.plan == 'basic' %}bg-blue-50 text-blue-700
+                                {% else %}bg-gray-100 text-gray-600{% endif %}">
+                                {{ school.get_plan_display }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4">
+                            {% if school.is_active %}
+                            <span class="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                Active
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1.5 text-xs font-medium text-red-600">
+                                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                                Inactive
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-500">
+                            {{ school.created_at|date:"M d, Y" }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-6 py-12 text-center text-sm text-gray-400">
+                            No schools registered yet.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

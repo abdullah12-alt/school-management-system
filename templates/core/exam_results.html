@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Exam Results — SchoolHub{% endblock %}
+{% block page_title %}Exam Results{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Student Info Card -->
+    <div class="bg-white rounded-xl border border-gray-200 p-6 flex items-center gap-4">
+        <div class="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
+            <span class="text-lg font-bold text-primary-700">{{ student.user.first_name|first|upper }}</span>
+        </div>
+        <div>
+            <h3 class="text-base font-bold text-gray-900">{{ student.user.get_full_name }}</h3>
+            <p class="text-xs text-gray-500">
+                Admission #: <strong>{{ student.admission_number }}</strong>
+                {% if student.section %}&bull; Section: <strong>{{ student.section }}</strong>{% endif %}
+            </p>
+        </div>
+    </div>
+
+    <!-- Results Table -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100">
+            <h3 class="text-sm font-bold text-gray-900">Exam Results Report Card</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Exam</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Subject</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Marks Obtained</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Max Marks</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Percentage</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for res in results %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4 text-sm font-semibold text-gray-900">{{ res.exam.name }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">{{ res.exam.date|date:"M d, Y" }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-800">{{ res.subject.name }}</td>
+                        <td class="px-6 py-4 text-sm font-bold text-primary-700">{{ res.marks_obtained }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">{{ res.exam.max_marks }}</td>
+                        <td class="px-6 py-4">
+                            {% with pct=res.marks_obtained|floatformat:0 %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">
+                                {{ res.marks_obtained }} / {{ res.exam.max_marks }}
+                            </span>
+                            {% endwith %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-16 text-center">
+                            <div class="flex flex-col items-center">
+                                <div class="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+                                    <i data-lucide="award" class="w-8 h-8 text-gray-300"></i>
+                                </div>
+                                <p class="text-sm font-semibold text-gray-900 mb-1">No exam results yet</p>
+                                <p class="text-xs text-gray-400">Results will appear here once exams are graded.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if page_obj and page_obj.has_other_pages %}
+        <div class="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+            <span class="text-xs text-gray-500">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+            <div class="flex items-center gap-2">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs font-semibold text-gray-600 transition-colors">Previous</a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs font-semibold text-gray-600 transition-colors">Next</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

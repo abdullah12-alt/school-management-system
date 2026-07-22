@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Roles — {{ staff_member.get_full_name }} — SchoolHub{% endblock %}
+{% block page_title %}Manage Roles{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+
+    <!-- Breadcrumb -->
+    <nav class="mb-6 flex items-center gap-2 text-sm text-gray-400">
+        <a href="{% url 'core:staff_list' %}" class="hover:text-primary-600 transition-colors">Staff Members</a>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+        <span class="text-gray-700 font-medium">{{ staff_member.get_full_name }}</span>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+        <span class="text-gray-700 font-medium">Roles</span>
+    </nav>
+
+    <!-- Staff member info card -->
+    <div class="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
+                <span class="text-base font-bold text-primary-700">
+                    {{ staff_member.first_name|first|upper }}{{ staff_member.last_name|first|upper }}
+                </span>
+            </div>
+            <div>
+                <h3 class="text-base font-bold text-gray-900">{{ staff_member.get_full_name }}</h3>
+                <div class="flex items-center gap-2 mt-0.5">
+                    <span class="text-sm text-gray-500">{{ staff_member.email }}</span>
+                    <span class="text-gray-300">&middot;</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-primary-50 text-primary-700">
+                        {{ staff_member.get_primary_role_display }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Role assignment form -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100">
+            <h3 class="text-base font-bold text-gray-900">Assign Extra Roles</h3>
+            <p class="text-sm text-gray-500 mt-0.5">
+                Select the extra roles for this staff member. These are in addition to their primary role.
+            </p>
+        </div>
+
+        <form method="post" action="{% url 'core:staff_roles' staff_member.pk %}" class="p-6">
+            {% csrf_token %}
+
+            {% if form.roles.field.queryset.count > 0 %}
+            <div class="space-y-3">
+                {% for checkbox in form.roles %}
+                <label class="flex items-center gap-3 px-4 py-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 hover:border-primary-200 transition-all duration-200 has-[:checked]:bg-primary-50 has-[:checked]:border-primary-300">
+                    {{ checkbox.tag }}
+                    <div>
+                        <p class="text-sm font-semibold text-gray-900">{{ checkbox.choice_label }}</p>
+                    </div>
+                </label>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-8">
+                <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                    <i data-lucide="shield-off" class="w-6 h-6 text-gray-300"></i>
+                </div>
+                <p class="text-sm text-gray-500 mb-3">No custom roles defined yet.</p>
+                <a href="{% url 'core:role_create' %}" class="text-sm font-semibold text-primary-600 hover:text-primary-700">
+                    Create your first role
+                </a>
+            </div>
+            {% endif %}
+
+            <!-- Actions -->
+            <div class="flex items-center gap-3 pt-5 mt-5 border-t border-gray-100">
+                <button type="submit" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-semibold shadow-sm hover:bg-primary-700 transition-all duration-200 hover:shadow-md">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    Save Roles
+                </button>
+                <a href="{% url 'core:staff_list' %}" class="px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

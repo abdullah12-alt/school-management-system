@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}{{ role_name }} Dashboard — SchoolHub{% endblock %}
+{% block page_title %}{{ role_name }} Dashboard{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+
+    <!-- Welcome card -->
+    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary-600 to-primary-800 p-6 lg:p-8 text-white">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4"></div>
+        <div class="absolute bottom-0 left-1/3 w-48 h-48 bg-white/5 rounded-full translate-y-1/2"></div>
+        <div class="relative flex items-center gap-5">
+            <div class="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center flex-shrink-0">
+                <i data-lucide="{{ role_icon }}" class="w-8 h-8 text-white"></i>
+            </div>
+            <div>
+                <h2 class="text-xl lg:text-2xl font-bold">Welcome, {{ user.first_name }}!</h2>
+                <p class="mt-1 text-primary-200 text-sm">
+                    You are signed in as <strong>{{ role_name }}</strong>
+                    {% if current_school %}at <strong>{{ current_school.name }}</strong>{% endif %}.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Placeholder content -->
+    <div class="bg-white rounded-xl border border-gray-200 p-8 text-center">
+        <div class="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="layout-grid" class="w-8 h-8 text-gray-400"></i>
+        </div>
+        <h3 class="text-lg font-bold text-gray-900 mb-2">{{ role_name }} Dashboard</h3>
+        <p class="text-sm text-gray-500 max-w-md mx-auto">
+            This is your {{ role_name|lower }} dashboard. Features specific to your role
+            will be available here in future updates.
+        </p>
+    </div>
+</div>
+{% endblock %}

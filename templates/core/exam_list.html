@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Exams — SchoolHub{% endblock %}
+{% block page_title %}Exams & Grading{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <p class="text-sm text-gray-500">View and grade examinations for your school sections.</p>
+        {% if user.primary_role == 'teacher' or user.is_superuser or is_school_admin %}
+        <a href="{% url 'core:exam_create' %}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-semibold shadow-sm hover:bg-primary-700 transition-all duration-200 hover:shadow-md">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            Create Exam
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Exams Table -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Exam Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Section</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Max Marks</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for exam in exams %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4 text-sm font-semibold text-gray-900">{{ exam.name }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">{{ exam.section }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">{{ exam.date|date:"M d, Y" }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-700 font-semibold">{{ exam.max_marks }}</td>
+                        <td class="px-6 py-4">
+                            {% if user.primary_role == 'teacher' or user.is_superuser or is_school_admin %}
+                            <a href="{% url 'core:exam_grade' exam.pk %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-primary-600 bg-primary-50 hover:bg-primary-100 transition-colors">
+                                <i data-lucide="pen-line" class="w-3 h-3"></i>
+                                Enter Grades
+                            </a>
+                            {% else %}
+                            <span class="text-xs text-gray-400">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-6 py-16 text-center">
+                            <div class="flex flex-col items-center">
+                                <div class="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+                                    <i data-lucide="file-spreadsheet" class="w-8 h-8 text-gray-300"></i>
+                                </div>
+                                <p class="text-sm font-semibold text-gray-900 mb-1">No exams created yet</p>
+                                <p class="text-xs text-gray-400 mb-4">Create the first exam for your school.</p>
+                                {% if user.primary_role == 'teacher' or user.is_superuser or is_school_admin %}
+                                <a href="{% url 'core:exam_create' %}" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-white text-xs font-semibold hover:bg-primary-700 transition-colors">
+                                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> Create Exam
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,253 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="School Management System — Multi-tenant SaaS for educational institutions">
+    <title>{% block title %}SchoolHub{% endblock %}</title>
+
+    <!-- Google Fonts: Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS v3 (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50:  '#eef2ff',
+                            100: '#e0e7ff',
+                            200: '#c7d2fe',
+                            300: '#a5b4fc',
+                            400: '#818cf8',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            800: '#3730a3',
+                            900: '#312e81',
+                            950: '#1e1b4b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Custom styles -->
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="h-full bg-gray-50 font-sans text-gray-800 antialiased">
+    {% if user.is_authenticated %}
+    <div class="min-h-full flex">
+
+        <!-- ─── Sidebar ─────────────────────────────────────────────── -->
+        <aside id="sidebar" class="fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 transform -translate-x-full lg:translate-x-0 lg:static lg:inset-auto transition-transform duration-300 ease-in-out flex flex-col">
+
+            <!-- School branding -->
+            <div class="h-16 flex items-center gap-3 px-5 border-b border-gray-100 flex-shrink-0">
+                <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center">
+                    <i data-lucide="graduation-cap" class="w-5 h-5 text-white"></i>
+                </div>
+                <div class="min-w-0">
+                    <h1 class="text-sm font-bold text-gray-900 truncate">
+                        {% if current_school %}{{ current_school.name }}{% else %}SchoolHub{% endif %}
+                    </h1>
+                    <p class="text-[11px] text-gray-400 font-medium">Management System</p>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+                <p class="px-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Main</p>
+
+                <a href="{% url 'core:dashboard' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:text-primary-700 hover:bg-primary-50 transition-all duration-200">
+                    <i data-lucide="layout-dashboard" class="w-[18px] h-[18px] text-gray-400 group-hover:text-primary-600 transition-colors"></i>
+                    Dashboard
+                </a>
+
+                {% if user.primary_role == 'teacher' or is_school_admin or is_platform_admin %}
+                <p class="px-3 pt-4 text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Academics & Attendance</p>
+
+                <a href="{% url 'core:attendance_mark' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:text-primary-700 hover:bg-primary-50 transition-all duration-200">
+                    <i data-lucide="calendar-check" class="w-[18px] h-[18px] text-gray-400 group-hover:text-primary-600 transition-colors"></i>
+                    Mark Attendance
+                </a>
+
+                <a href="{% url 'core:exam_list' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:text-primary-700 hover:bg-primary-50 transition-all duration-200">
+                    <i data-lucide="file-spreadsheet" class="w-[18px] h-[18px] text-gray-400 group-hover:text-primary-600 transition-colors"></i>
+                    Exams & Grading
+                </a>
+                {% endif %}
+
+                {% if user.primary_role == 'student' or user.primary_role == 'parent' %}
+                <p class="px-3 pt-4 text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Student Portal</p>
+
+                <a href="{% url 'core:attendance_history' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:text-primary-700 hover:bg-primary-50 transition-all duration-200">
+                    <i data-lucide="calendar" class="w-[18px] h-[18px] text-gray-400 group-hover:text-primary-600 transition-colors"></i>
+                    My Attendance
+                </a>
+
+                <a href="{% url 'core:exam_results' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:text-primary-700 hover:bg-primary-50 transition-all duration-200">
+                    <i data-lucide="award" class="w-[18px] h-[18px] text-gray-400 group-hover:text-primary-600 transition-colors"></i>
+                    Exam Results
+                </a>
+
+                <a href="{% url 'core:my_invoices' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:text-primary-700 hover:bg-primary-50 transition-all duration-200">
+                    <i data-lucide="receipt" class="w-[18px] h-[18px] text-gray-400 group-hover:text-primary-600 transition-colors"></i>
+                    My Invoices
+                </a>
+                {% endif %}
+
+                {% if user.primary_role == 'accountant' or is_school_admin or is_platform_admin %}
+                <p class="px-3 pt-4 text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Finance</p>
+
+                <a href="{% url 'core:invoice_list' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:text-primary-700 hover:bg-primary-50 transition-all duration-200">
+                    <i data-lucide="dollar-sign" class="w-[18px] h-[18px] text-gray-400 group-hover:text-primary-600 transition-colors"></i>
+                    Fee Invoices
+                </a>
+                {% endif %}
+
+                {% if is_school_admin or is_platform_admin %}
+                <p class="px-3 pt-5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Management</p>
+
+                <a href="{% url 'core:staff_list' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:text-primary-700 hover:bg-primary-50 transition-all duration-200">
+                    <i data-lucide="users" class="w-[18px] h-[18px] text-gray-400 group-hover:text-primary-600 transition-colors"></i>
+                    Staff Members
+                </a>
+
+                <a href="{% url 'core:staff_create' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:text-primary-700 hover:bg-primary-50 transition-all duration-200">
+                    <i data-lucide="user-plus" class="w-[18px] h-[18px] text-gray-400 group-hover:text-primary-600 transition-colors"></i>
+                    Add Staff
+                </a>
+
+                <a href="{% url 'core:role_list' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:text-primary-700 hover:bg-primary-50 transition-all duration-200">
+                    <i data-lucide="shield" class="w-[18px] h-[18px] text-gray-400 group-hover:text-primary-600 transition-colors"></i>
+                    Roles
+                </a>
+                {% endif %}
+
+                {% if is_platform_admin %}
+                <p class="px-3 pt-5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Platform</p>
+
+                <a href="/admin/" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:text-primary-700 hover:bg-primary-50 transition-all duration-200">
+                    <i data-lucide="settings" class="w-[18px] h-[18px] text-gray-400 group-hover:text-primary-600 transition-colors"></i>
+                    Django Admin
+                </a>
+                {% endif %}
+            </nav>
+
+            <!-- User section at bottom -->
+            <div class="flex-shrink-0 border-t border-gray-100 p-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
+                        <span class="text-sm font-bold text-primary-700">
+                            {{ user.first_name|first|upper }}{{ user.last_name|first|upper }}
+                        </span>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-sm font-semibold text-gray-900 truncate">
+                            {{ user.get_full_name }}
+                        </p>
+                        <p class="text-[11px] text-gray-400 font-medium">{{ user_role_display }}</p>
+                    </div>
+                    <a href="{% url 'core:logout' %}" class="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all duration-200" title="Logout">
+                        <i data-lucide="log-out" class="w-4 h-4"></i>
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Mobile overlay -->
+        <div id="sidebar-overlay" class="fixed inset-0 bg-gray-900/50 z-20 hidden lg:hidden" onclick="toggleSidebar()"></div>
+
+        <!-- ─── Main Content ─────────────────────────────────────────── -->
+        <div class="flex-1 flex flex-col min-h-screen lg:min-w-0">
+
+            <!-- Top bar -->
+            <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 lg:px-8 flex-shrink-0">
+                <div class="flex items-center gap-3">
+                    <button onclick="toggleSidebar()" class="lg:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">
+                        <i data-lucide="menu" class="w-5 h-5"></i>
+                    </button>
+                    <h2 class="text-lg font-bold text-gray-900">{% block page_title %}Dashboard{% endblock %}</h2>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="hidden sm:inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-primary-50 text-primary-700">
+                        {{ user_role_display }}
+                    </span>
+                </div>
+            </header>
+
+            <!-- Page content -->
+            <main class="flex-1 p-4 lg:p-8">
+                <!-- Flash messages -->
+                {% if messages %}
+                <div class="mb-6 space-y-3">
+                    {% for message in messages %}
+                    <div class="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium
+                        {% if message.tags == 'success' %}bg-emerald-50 text-emerald-800 border border-emerald-200
+                        {% elif message.tags == 'error' %}bg-red-50 text-red-800 border border-red-200
+                        {% elif message.tags == 'warning' %}bg-amber-50 text-amber-800 border border-amber-200
+                        {% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}"
+                        role="alert">
+                        <i data-lucide="{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}alert-circle{% elif message.tags == 'warning' %}alert-triangle{% else %}info{% endif %}" class="w-4 h-4 flex-shrink-0"></i>
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+    {% else %}
+        {% block public_content %}{% endblock %}
+    {% endif %}
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Mobile sidebar toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
+
+        // Prevent double submit on forms
+        document.addEventListener('submit', function(e) {
+            const form = e.target;
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn && !submitBtn.disabled) {
+                submitBtn.disabled = true;
+                submitBtn.style.opacity = '0.75';
+                submitBtn.style.cursor = 'not-allowed';
+                const originalText = submitBtn.innerText;
+                submitBtn.innerHTML = '<span class="inline-flex items-center gap-2"><svg class="animate-spin h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Processing...</span>';
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

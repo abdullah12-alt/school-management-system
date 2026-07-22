@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Parent Dashboard — SchoolHub{% endblock %}
+{% block page_title %}Parent Portal{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+
+    <!-- Banner -->
+    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary-600 to-primary-800 p-6 lg:p-8 text-white">
+        <h2 class="text-xl lg:text-2xl font-bold">Welcome back, {{ user.first_name }}!</h2>
+        <p class="mt-1 text-primary-200 text-sm">
+            Parent Portal &bull; <strong>{{ current_school.name }}</strong>
+        </p>
+    </div>
+
+    <!-- Children Overview -->
+    <div class="space-y-6">
+        <h3 class="text-base font-bold text-gray-900">Linked Children Summary</h3>
+
+        {% for item in children_data %}
+        <div class="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+            <div class="flex items-center justify-between border-b border-gray-100 pb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center font-bold text-primary-700">
+                        {{ item.child.user.first_name|first|upper }}
+                    </div>
+                    <div>
+                        <h4 class="text-base font-bold text-gray-900">{{ item.child.user.get_full_name }}</h4>
+                        <p class="text-xs text-gray-500">Admission #: {{ item.child.admission_number }} &bull; Section: {{ item.child.section }}</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <a href="{% url 'core:attendance_history_student' item.child.id %}" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition-colors">
+                        Attendance
+                    </a>
+                    <a href="{% url 'core:exam_results_student' item.child.id %}" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition-colors">
+                        Results
+                    </a>
+                    <a href="{% url 'core:my_invoices_student' item.child.id %}" class="px-3 py-1.5 bg-primary-50 hover:bg-primary-100 text-primary-700 text-xs font-semibold rounded-lg transition-colors">
+                        Invoices {% if item.unpaid_count > 0 %}<span class="bg-red-500 text-white rounded-full px-1.5 py-0.5 text-[10px] ml-1">{{ item.unpaid_count }}</span>{% endif %}
+                    </a>
+                </div>
+            </div>
+
+            <!-- Quick Summaries Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <!-- Recent Attendance Summary -->
+                <div class="p-3 bg-gray-50 rounded-lg">
+                    <h5 class="font-bold text-gray-700 mb-2">Recent Attendance</h5>
+                    {% for att in item.recent_attendance %}
+                    <div class="flex justify-between py-1 border-b border-gray-100 last:border-0">
+                        <span>{{ att.date|date:"M d" }}</span>
+                        <span class="font-semibold text-primary-700">{{ att.get_status_display }}</span>
+                    </div>
+                    {% empty %}
+                    <p class="text-gray-400">No attendance history.</p>
+                    {% endfor %}
+                </div>
+
+                <!-- Recent Exam Results Summary -->
+                <div class="p-3 bg-gray-50 rounded-lg">
+                    <h5 class="font-bold text-gray-700 mb-2">Latest Exam Scores</h5>
+                    {% for res in item.recent_results %}
+                    <div class="flex justify-between py-1 border-b border-gray-100 last:border-0">
+                        <span>{{ res.subject.name }}</span>
+                        <span class="font-semibold text-emerald-700">{{ res.marks_obtained }} / {{ res.exam.max_marks }}</span>
+                    </div>
+                    {% empty %}
+                    <p class="text-gray-400">No exam results published.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
+            <i data-lucide="users" class="w-12 h-12 text-gray-300 mx-auto mb-3"></i>
+            <h4 class="text-base font-bold text-gray-900 mb-1">No Children Linked</h4>
+            <p class="text-sm text-gray-400">Contact the School Admin to link your parent account to your child's student record.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

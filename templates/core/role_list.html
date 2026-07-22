@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Custom Roles — SchoolHub{% endblock %}
+{% block page_title %}Custom Roles{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <p class="text-sm text-gray-500">
+                Define extra roles that can be assigned to staff members at
+                <strong class="text-gray-700">{{ current_school.name }}</strong>.
+            </p>
+        </div>
+        <a href="{% url 'core:role_create' %}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-semibold shadow-sm hover:bg-primary-700 transition-all duration-200 hover:shadow-md">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            Create Role
+        </a>
+    </div>
+
+    <!-- Roles grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for role in roles %}
+        <div class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow duration-300">
+            <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-lg bg-primary-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <i data-lucide="shield" class="w-5 h-5 text-primary-600"></i>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold text-gray-900">{{ role.name }}</h4>
+                    {% if role.description %}
+                    <p class="text-xs text-gray-500 mt-1">{{ role.description }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-span-full">
+            <div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                <div class="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                    <i data-lucide="shield" class="w-8 h-8 text-gray-300"></i>
+                </div>
+                <p class="text-sm font-semibold text-gray-900 mb-1">No custom roles yet</p>
+                <p class="text-xs text-gray-400 mb-4">Create roles like "Class Coordinator" or "Sports Head" to assign to staff.</p>
+                <a href="{% url 'core:role_create' %}" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-white text-xs font-semibold hover:bg-primary-700 transition-colors">
+                    <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                    Create First Role
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

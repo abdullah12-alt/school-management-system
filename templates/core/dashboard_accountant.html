@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Accountant Dashboard — SchoolHub{% endblock %}
+{% block page_title %}Finance Dashboard{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+
+    <!-- Banner & Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <p class="text-sm font-medium text-gray-500">Outstanding Invoices</p>
+            <p class="mt-1 text-3xl font-bold text-red-600">{{ outstanding_invoices|length }}</p>
+        </div>
+
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <p class="text-sm font-medium text-gray-500">Total Outstanding Due</p>
+            <p class="mt-1 text-3xl font-bold text-gray-900">${{ total_unpaid_sum }}</p>
+        </div>
+
+        <div class="bg-white rounded-xl border border-gray-200 p-6 flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-500">Quick Action</p>
+                <p class="text-base font-bold text-gray-900">Issue Fee Invoice</p>
+            </div>
+            <a href="{% url 'core:invoice_create' %}" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5">
+                <i data-lucide="plus" class="w-4 h-4"></i> New Invoice
+            </a>
+        </div>
+    </div>
+
+    <!-- Outstanding Invoices List -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 class="text-base font-bold text-gray-900">Outstanding Invoices Requiring Payment</h3>
+            <a href="{% url 'core:invoice_list' %}" class="text-xs font-semibold text-primary-600 hover:text-primary-700">View All Invoices</a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Invoice #</th>
+                        <th class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Student Name</th>
+                        <th class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Fee Type</th>
+                        <th class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Amount Due</th>
+                        <th class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Due Date</th>
+                        <th class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for inv in outstanding_invoices %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4 text-sm font-bold text-gray-900">#{{ inv.id }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-800 font-medium">{{ inv.student.user.get_full_name }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">{{ inv.fee_structure.name }}</td>
+                        <td class="px-6 py-4 text-sm font-bold text-red-600">${{ inv.amount_due }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">{{ inv.due_date|date:"M d, Y" }}</td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
+                                {% if inv.status == 'partial' %}bg-amber-50 text-amber-700{% else %}bg-red-50 text-red-700{% endif %}">
+                                {{ inv.get_status_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center text-sm text-gray-400">
+                            No outstanding unpaid invoices.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

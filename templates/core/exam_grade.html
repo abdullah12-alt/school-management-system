@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% load core_tags %}
+
+{% block title %}Enter Marks — {{ exam.name }} — SchoolHub{% endblock %}
+{% block page_title %}Grade Exam{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Exam details -->
+    <div class="bg-white rounded-xl border border-gray-200 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+            <h3 class="text-lg font-bold text-gray-900">{{ exam.name }}</h3>
+            <p class="text-sm text-gray-500">
+                Section: <strong>{{ exam.section }}</strong> &bull;
+                Date: <strong>{{ exam.date|date:"M d, Y" }}</strong> &bull;
+                Max Marks: <strong>{{ exam.max_marks }}</strong>
+            </p>
+        </div>
+    </div>
+
+    <!-- Grade entry form -->
+    <form method="post" class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {% csrf_token %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-200">
+                        <th class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Student</th>
+                        {% for subject in subjects %}
+                        <th class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">{{ subject.name }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for student in students %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4 text-sm font-semibold text-gray-900">
+                            {{ student.user.get_full_name }}
+                            <span class="block text-xs text-gray-400 font-normal">#{{ student.admission_number }}</span>
+                        </td>
+                        {% for subject in subjects %}
+                        {% with key=student.id|stringformat:"s"|add:","|add:subject.id|stringformat:"s" %}
+                        <td class="px-6 py-4">
+                            <input type="number" step="0.01" max="{{ exam.max_marks }}" name="marks_{{ student.id }}_{{ subject.id }}"
+                                value="{% for k, v in results_map.items %}{% if k.0 == student.id and k.1 == subject.id %}{{ v }}{% endif %}{% endfor %}"
+                                placeholder="0.00" class="w-24 px-3 py-1.5 rounded-lg border border-gray-300 focus:border-indigo-500 text-sm">
+                        </td>
+                        {% endwith %}
+                        {% endfor %}
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="{{ subjects|length|add:1 }}" class="px-6 py-12 text-center text-sm text-gray-400">
+                            No students found in this section.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if students %}
+        <div class="p-6 border-t border-gray-100 flex justify-end">
+            <button type="submit" class="px-6 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold text-sm rounded-xl transition-colors">
+                Save Exam Marks
+            </button>
+        </div>
+        {% endif %}
+    </form>
+</div>
+{% endblock %}

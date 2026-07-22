@@ -1,0 +1,87 @@
+/*
+ * SchoolHub — Custom CSS
+ * Minimal overrides on top of Tailwind CSS.
+ * Design system: Plus Jakarta Sans, Lucide Icons, Indigo primary.
+ */
+
+/* ─── Smooth scrolling ────────────────────────────────────────────────── */
+html {
+    scroll-behavior: smooth;
+}
+
+/* ─── Selection color ─────────────────────────────────────────────────── */
+::selection {
+    background-color: rgba(79, 70, 229, 0.15);
+    color: inherit;
+}
+
+/* ─── Custom scrollbar (WebKit) ───────────────────────────────────────── */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.12);
+    border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
+/* ─── Focus ring override ─────────────────────────────────────────────── */
+*:focus-visible {
+    outline: 2px solid rgba(79, 70, 229, 0.5);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* ─── Active nav link highlight ───────────────────────────────────────── */
+.nav-link.active,
+.nav-link[aria-current="page"] {
+    color: #4338ca;
+    background-color: #eef2ff;
+}
+
+.nav-link.active i,
+.nav-link[aria-current="page"] i {
+    color: #4f46e5;
+}
+
+/* ─── Checkbox styling for role assignment ────────────────────────────── */
+input[type="checkbox"] {
+    accent-color: #4f46e5;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+}
+
+/* ─── Form field error state ──────────────────────────────────────────── */
+input.border-red-500,
+select.border-red-500 {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1);
+}
+
+/* ─── Transition defaults ─────────────────────────────────────────────── */
+a, button, input, select, textarea {
+    transition-property: color, background-color, border-color, box-shadow, transform;
+    transition-duration: 200ms;
+    transition-timing-function: ease;
+}
+
+/* ─── Print styles ────────────────────────────────────────────────────── */
+@media print {
+    aside, header, .no-print {
+        display: none !important;
+    }
+    main {
+        padding: 0 !important;
+    }
+}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Teacher Dashboard — SchoolHub{% endblock %}
+{% block page_title %}Teacher Portal{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+
+    <!-- Banner -->
+    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary-600 to-primary-800 p-6 lg:p-8 text-white">
+        <h2 class="text-xl lg:text-2xl font-bold">Welcome back, {{ user.first_name }}!</h2>
+        <p class="mt-1 text-primary-200 text-sm">
+            Teacher Portal &bull; <strong>{{ current_school.name }}</strong>
+        </p>
+    </div>
+
+    <!-- Assigned Sections Grid -->
+    <div>
+        <h3 class="text-base font-bold text-gray-900 mb-4">Your Assigned Sections</h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {% for section in sections %}
+            <div class="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-shadow flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary-50 text-primary-700">
+                            {{ section.classroom.name }}
+                        </span>
+                        <i data-lucide="book-open" class="w-5 h-5 text-gray-400"></i>
+                    </div>
+                    <h4 class="text-lg font-bold text-gray-900">{{ section.name }}</h4>
+                    <p class="text-xs text-gray-500 mt-1">Classroom: {{ section.classroom.code }}</p>
+                </div>
+
+                <div class="mt-6 pt-4 border-t border-gray-100 flex items-center gap-3">
+                    <a href="{% url 'core:attendance_mark' %}?section_id={{ section.id }}" class="flex-1 text-center py-2 px-3 bg-primary-50 hover:bg-primary-100 text-primary-700 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                        <i data-lucide="calendar-check" class="w-3.5 h-3.5"></i> Mark Attendance
+                    </a>
+                    <a href="{% url 'core:exam_list' %}" class="flex-1 text-center py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                        <i data-lucide="award" class="w-3.5 h-3.5"></i> Enter Marks
+                    </a>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-span-full bg-white rounded-xl border border-gray-200 p-12 text-center">
+                <i data-lucide="book-open" class="w-12 h-12 text-gray-300 mx-auto mb-3"></i>
+                <h4 class="text-base font-bold text-gray-900 mb-1">No Sections Assigned</h4>
+                <p class="text-sm text-gray-400">Contact your School Admin to assign class sections to your account.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
