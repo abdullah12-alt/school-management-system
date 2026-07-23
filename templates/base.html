@@ -61,10 +61,10 @@
 </head>
 <body class="h-full bg-gray-50 dark:bg-slate-900 font-sans text-gray-800 dark:text-slate-100 antialiased transition-colors duration-200">
     {% if user.is_authenticated %}
-    <div class="min-h-full flex">
+    <div class="h-screen flex overflow-hidden">
 
         <!-- ─── Sidebar ─────────────────────────────────────────────── -->
-        <aside id="sidebar" class="fixed inset-y-0 left-0 z-30 w-64 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700/80 transform -translate-x-full lg:translate-x-0 lg:static lg:inset-auto transition-transform duration-300 ease-in-out flex flex-col">
+        <aside id="sidebar" class="fixed inset-y-0 left-0 z-30 w-64 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700/80 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col">
 
             <!-- School branding -->
             <div class="h-16 flex items-center gap-3 px-5 border-b border-gray-100 dark:border-slate-700/80 flex-shrink-0">
@@ -194,7 +194,7 @@
         <div id="sidebar-overlay" class="fixed inset-0 bg-gray-900/50 dark:bg-black/60 z-20 hidden lg:hidden" onclick="toggleSidebar()"></div>
 
         <!-- ─── Main Content ─────────────────────────────────────────── -->
-        <div class="flex-1 flex flex-col min-h-screen lg:min-w-0">
+        <div class="flex-1 flex flex-col h-full min-w-0 lg:ml-64 overflow-hidden">
 
             {% if impersonated_school %}
             <div class="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-500 text-white px-4 py-2.5 text-xs font-semibold flex items-center justify-between shadow-md z-40 relative">
@@ -230,7 +230,7 @@
             </header>
 
             <!-- Page content -->
-            <main class="flex-1 p-4 lg:p-8">
+            <main class="flex-1 overflow-y-auto p-4 lg:p-8">
                 <!-- Flash messages -->
                 {% if messages %}
                 <div class="mb-6 space-y-3">
