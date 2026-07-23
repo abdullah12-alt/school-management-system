@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}Global Users Directory — SchoolHub Admin{% endblock %}
+{% block page_title %}Global Users Directory{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Header breadcrumb -->
+    <div class="flex items-center justify-between gap-4">
+        <div>
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white">All Platform Users</h3>
+            <p class="text-xs text-gray-500 dark:text-slate-400">View, filter, activate/deactivate, and reset passwords for user accounts across all tenant schools.</p>
+        </div>
+        <a href="{% url 'core:dashboard_superadmin' %}" class="px-4 py-2 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-200 text-xs font-semibold hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors">
+            Back to Dashboard
+        </a>
+    </div>
+
+    <!-- Search & Filters -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700/80 p-5 shadow-sm">
+        <form method="get" class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+            <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <!-- Search -->
+                <div class="relative w-full">
+                    <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                    <input type="text" name="q" value="{{ search_q }}" placeholder="Search email or name..." class="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs text-gray-800 dark:text-white focus:ring-2 focus:ring-primary-500/20 outline-none">
+                </div>
+
+                <!-- School Filter -->
+                <select name="school" class="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs text-gray-800 dark:text-white outline-none">
+                    <option value="">All Schools</option>
+                    {% for sch in schools %}
+                    <option value="{{ sch.id }}" {% if school_filter == sch.id|stringformat:"s" %}selected{% endif %}>{{ sch.name }}</option>
+                    {% endfor %}
+                </select>
+
+                <!-- Role Filter -->
+                <select name="role" class="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs text-gray-800 dark:text-white outline-none">
+                    <option value="">All Roles</option>
+                    {% for val, label in role_choices %}
+                    <option value="{{ val }}" {% if role_filter == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+
+                <!-- Status Filter -->
+                <select name="status" class="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs text-gray-800 dark:text-white outline-none">
+                    <option value="">All Statuses</option>
+                    <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active Only</option>
+                    <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Deactivated Only</option>
+                </select>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button type="submit" class="px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5">
+                    <i data-lucide="filter" class="w-3.5 h-3.5"></i> Filter
+                </button>
+                {% if search_q or role_filter or school_filter or status_filter %}
+                <a href="{% url 'core:platform_user_list' %}" class="px-2.5 py-2 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors">Clear</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- Users Table -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700/80 overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="bg-gray-50 dark:bg-slate-900/50 text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
+                        <th class="px-6 py-3.5">User</th>
+                        <th class="px-6 py-3.5">Email</th>
+                        <th class="px-6 py-3.5">School Tenant</th>
+                        <th class="px-6 py-3.5">Primary Role</th>
+                        <th class="px-6 py-3.5">Status</th>
+                        <th class="px-6 py-3.5 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-slate-700/60 text-sm">
+                    {% for u in users %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-slate-700/40 transition-colors">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-950 text-primary-700 dark:text-primary-300 font-bold flex items-center justify-center text-xs flex-shrink-0">
+                                    {{ u.first_name|first|upper }}{{ u.last_name|first|upper }}
+                                </div>
+                                <div>
+                                    <p class="font-bold text-gray-900 dark:text-white">{{ u.get_full_name }}</p>
+                                    {% if u.is_superuser %}<span class="text-[10px] text-amber-500 font-bold">Superadmin</span>{% endif %}
+                                </div>
+                            </div>
+                        </td>
+
+                        <td class="px-6 py-4 text-xs font-mono text-gray-600 dark:text-slate-300">{{ u.email }}</td>
+
+                        <td class="px-6 py-4 text-xs">
+                            {% if u.school %}
+                            <span class="font-semibold text-gray-800 dark:text-slate-200">{{ u.school.name }}</span>
+                            {% else %}
+                            <span class="text-gray-400 dark:text-slate-400 italic">Platform Level</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
+                                {% if u.primary_role == 'school_admin' %}bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300
+                                {% elif u.primary_role == 'teacher' %}bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300
+                                {% elif u.primary_role == 'student' %}bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300
+                                {% elif u.primary_role == 'accountant' %}bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300
+                                {% else %}bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300{% endif %}">
+                                {{ u.role_display }}
+                            </span>
+                        </td>
+
+                        <td class="px-6 py-4">
+                            {% if u.is_active %}
+                            <span class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1 text-xs font-semibold text-red-500 dark:text-red-400">
+                                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Deactivated
+                            </span>
+                            {% endif %}
+                        </td>
+
+                        <td class="px-6 py-4 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <!-- Reset Password -->
+                                <a href="{% url 'core:platform_user_reset_password' u.id %}" class="px-2.5 py-1 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1" title="Reset Password">
+                                    <i data-lucide="key" class="w-3.5 h-3.5"></i> Reset
+                                </a>
+
+                                <!-- Toggle Active Status -->
+                                {% if not u.is_superuser %}
+                                <form method="post" action="{% url 'core:platform_user_toggle_active' u.id %}" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1
+                                        {% if u.is_active %}bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100{% else %}bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100{% endif %}"
+                                        title="{% if u.is_active %}Deactivate Account{% else %}Activate Account{% endif %}">
+                                        <i data-lucide="{% if u.is_active %}user-x{% else %}user-check{% endif %}" class="w-3.5 h-3.5"></i>
+                                        {% if u.is_active %}Deactivate{% else %}Activate{% endif %}
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center text-sm text-gray-400">
+                            No users found matching your filters.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if page_obj and page_obj.has_other_pages %}
+        <div class="px-6 py-4 border-t border-gray-100 dark:border-slate-700/80 flex items-center justify-between text-xs">
+            <span class="text-gray-500 dark:text-slate-400">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+            <div class="flex items-center gap-2">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if search_q %}&q={{ search_q }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if school_filter %}&school={{ school_filter }}{% endif %}" class="px-3 py-1.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 rounded-lg font-semibold text-gray-700 dark:text-slate-200">Previous</a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if search_q %}&q={{ search_q }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if school_filter %}&school={{ school_filter }}{% endif %}" class="px-3 py-1.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 rounded-lg font-semibold text-gray-700 dark:text-slate-200">Next</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

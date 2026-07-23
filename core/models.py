@@ -65,6 +65,122 @@ STAFF_ROLES = [
 ]
 
 
+PLAN_LIMITS = {
+    PlanChoices.FREE: {'students': 50, 'staff': 5},
+    PlanChoices.BASIC: {'students': 200, 'staff': 25},
+    PlanChoices.PREMIUM: {'students': 1000, 'staff': 100},
+}
+
+
+# ── Subscription Plan ────────────────────────────────────────────────────────
+
+class SubscriptionPlan(models.Model):
+    """
+    Database-backed subscription plan managed by Platform Superadmin.
+    Replaces the hardcoded PLAN_LIMITS dict — limits are now editable live
+    from the Platform Admin dashboard without touching any code.
+
+    student_limit / staff_limit = NULL means Unlimited (no restriction).
+    """
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    price_month = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        help_text='Monthly price in USD. Set to 0 for free plans.',
+    )
+    student_limit = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text='Maximum students allowed. Leave blank for Unlimited.',
+    )
+    staff_limit = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text='Maximum staff members allowed. Leave blank for Unlimited.',
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text='Only active plans are selectable when assigning to a school.',
+    )
+    order = models.PositiveIntegerField(
+        default=0,
+        help_text='Display order in lists (lower = shown first).',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order', 'name']
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        from django.utils.text import slugify as _slugify
+        if not self.slug:
+            self.slug = _slugify(self.name)
+        super().save(*args, **kwargs)
+
+    @property
+    def student_limit_display(self):
+        return '∞ Unlimited' if self.student_limit is None else str(self.student_limit)
+
+    @property
+    def staff_limit_display(self):
+        return '∞ Unlimited' if self.staff_limit is None else str(self.staff_limit)
+
+    @property
+    def is_unlimited(self):
+        return self.student_limit is None and self.staff_limit is None
+
+    @property
+    def school_count(self):
+        return self.schools.count()
+
+
+class ActivityTypeChoices(models.TextChoices):
+    SCHOOL_CREATED = 'school_created', 'School Created'
+    SCHOOL_STATUS_CHANGED = 'school_status_changed', 'School Status Changed'
+    PLAN_CHANGED = 'plan_changed', 'Plan Changed'
+    ADMIN_ASSIGNED = 'admin_assigned', 'Admin Assigned'
+    LOGIN_FAILED = 'login_failed', 'Login Failed'
+    USER_STATUS_CHANGED = 'user_status_changed', 'User Status Changed'
+
+
+class PlatformActivity(models.Model):
+    """
+    Audit log for platform superadmin activities and tenant events.
+    """
+    school = models.ForeignKey(
+        'School',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='activities',
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='performed_activities',
+    )
+    action_type = models.CharField(
+        max_length=35,
+        choices=ActivityTypeChoices.choices,
+    )
+    description = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.get_action_type_display()}: {self.description}"
+
+
 # ── School (Tenant) ─────────────────────────────────────────────────────────
 
 class School(models.Model):
@@ -74,10 +190,19 @@ class School(models.Model):
     name = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, unique=True)
     logo = models.ImageField(upload_to='school_logos/', blank=True, null=True)
+    # Legacy plan field kept for backward-compat; subscription_plan is the live source of truth.
     plan = models.CharField(
         max_length=20,
         choices=PlanChoices.choices,
         default=PlanChoices.FREE,
+    )
+    subscription_plan = models.ForeignKey(
+        SubscriptionPlan,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='schools',
+        help_text='The active subscription plan for this school. Overrides the legacy plan field.',
     )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -92,6 +217,78 @@ class School(models.Model):
         if not self.slug:
             self.slug = slugify(self.name)
         super().save(*args, **kwargs)
+
+    @property
+    def effective_plan(self):
+        """Returns the SubscriptionPlan if set, otherwise falls back to legacy PLAN_LIMITS."""
+        return self.subscription_plan
+
+    @property
+    def plan_display_name(self):
+        if self.subscription_plan:
+            return self.subscription_plan.name
+        return self.get_plan_display()
+
+    @property
+    def student_count(self):
+        return Student.unscoped.filter(school=self).count()
+
+    @property
+    def staff_count(self):
+        return User.objects.filter(
+            school=self,
+            primary_role__in=[r.value for r in STAFF_ROLES]
+        ).count()
+
+    @property
+    def unpaid_invoice_count(self):
+        return Invoice.unscoped.filter(school=self, status__in=['unpaid', 'partial']).count()
+
+    @property
+    def unpaid_invoice_amount(self):
+        return Invoice.unscoped.filter(school=self, status__in=['unpaid', 'partial']).aggregate(models.Sum('amount_due'))['amount_due__sum'] or 0.00
+
+    @property
+    def student_limit(self):
+        """Returns student cap from linked SubscriptionPlan, or legacy PLAN_LIMITS, or None (unlimited)."""
+        if self.subscription_plan is not None:
+            return self.subscription_plan.student_limit  # None = unlimited
+        return PLAN_LIMITS.get(self.plan, {}).get('students', 50)
+
+    @property
+    def staff_limit(self):
+        """Returns staff cap from linked SubscriptionPlan, or legacy PLAN_LIMITS, or None (unlimited)."""
+        if self.subscription_plan is not None:
+            return self.subscription_plan.staff_limit  # None = unlimited
+        return PLAN_LIMITS.get(self.plan, {}).get('staff', 5)
+
+    @property
+    def is_student_limit_reached(self):
+        limit = self.student_limit
+        if limit is None:
+            return False  # Unlimited plan
+        return self.student_count >= limit
+
+    @property
+    def is_staff_limit_reached(self):
+        limit = self.staff_limit
+        if limit is None:
+            return False  # Unlimited plan
+        return self.staff_count >= limit
+
+    @property
+    def student_usage_pct(self):
+        limit = self.student_limit
+        if not limit:
+            return 0
+        return min(100, int((self.student_count / limit) * 100))
+
+    @property
+    def staff_usage_pct(self):
+        limit = self.staff_limit
+        if not limit:
+            return 0
+        return min(100, int((self.staff_count / limit) * 100))
 
 
 # ── TenantModel (Abstract Base) ─────────────────────────────────────────────

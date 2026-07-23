@@ -1,104 +1,275 @@
 {% extends "base.html" %}
 
-{% block title %}Platform Admin — SchoolHub{% endblock %}
-{% block page_title %}Platform Admin Dashboard{% endblock %}
+{% block title %}Platform Overview — SchoolHub Admin{% endblock %}
+{% block page_title %}Platform Administration & Tenant Directory{% endblock %}
 
 {% block content %}
 <div class="space-y-8">
 
-    <!-- Welcome header -->
-    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-800 to-slate-900 p-6 lg:p-8 text-white">
-        <div class="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4"></div>
-        <div class="relative">
-            <h2 class="text-xl lg:text-2xl font-bold">Platform Overview</h2>
-            <p class="mt-1 text-slate-300 text-sm">Managing all schools on the platform.</p>
-        </div>
-    </div>
-
-    <!-- Stats -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-        <div class="bg-white rounded-xl border border-gray-200 p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">Total Schools</p>
-                    <p class="mt-1 text-3xl font-bold text-gray-900">{{ schools|length }}</p>
+    <!-- Overview Banner -->
+    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-primary-950 to-slate-900 p-6 lg:p-8 text-white shadow-xl">
+        <div class="absolute top-0 right-0 w-80 h-80 bg-primary-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
+        <div class="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-500/20 text-primary-300 border border-primary-500/30 text-xs font-semibold mb-3">
+                    <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Platform Control Center
                 </div>
-                <div class="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center">
-                    <i data-lucide="building-2" class="w-6 h-6 text-primary-600"></i>
-                </div>
+                <h2 class="text-2xl lg:text-3xl font-bold">Multi-Tenant SaaS Overview</h2>
+                <p class="mt-1 text-slate-300 text-sm max-w-2xl">
+                    Manage all onboarded school tenants, monitor plan limits, provision admin accounts, and audit platform activities.
+                </p>
             </div>
-        </div>
-        <div class="bg-white rounded-xl border border-gray-200 p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">Total Users</p>
-                    <p class="mt-1 text-3xl font-bold text-gray-900">{{ total_users }}</p>
-                </div>
-                <div class="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center">
-                    <i data-lucide="users" class="w-6 h-6 text-emerald-600"></i>
-                </div>
+            <div class="flex items-center gap-3">
+                <a href="{% url 'core:platform_plan_list' %}" class="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-white/10 text-white font-semibold text-sm hover:bg-white/20 border border-white/20 transition-all">
+                    <i data-lucide="credit-card" class="w-4 h-4"></i> Manage Plans
+                </a>
+                <a href="{% url 'core:platform_school_create' %}" class="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-bold text-sm shadow-lg shadow-primary-500/30 hover:shadow-primary-500/50 hover:from-primary-500 hover:to-primary-400 transition-all">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i> Register New School
+                </a>
             </div>
         </div>
     </div>
 
-    <!-- Schools table -->
-    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-100">
-            <h3 class="text-base font-bold text-gray-900">All Schools</h3>
+    <!-- Platform Health Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <!-- Schools Overview -->
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700/80 p-6 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+                <span class="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-slate-400">School Tenants</span>
+                <div class="w-10 h-10 rounded-xl bg-primary-50 dark:bg-primary-950/60 flex items-center justify-center">
+                    <i data-lucide="building-2" class="w-5 h-5 text-primary-600 dark:text-primary-400"></i>
+                </div>
+            </div>
+            <div class="flex items-baseline gap-2">
+                <span class="text-3xl font-extrabold text-gray-900 dark:text-white">{{ total_schools }}</span>
+                <span class="text-xs font-semibold text-gray-500 dark:text-slate-400">Total Registered</span>
+            </div>
+            <div class="mt-4 pt-3 border-t border-gray-100 dark:border-slate-700/60 flex items-center justify-between text-xs">
+                <span class="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span> {{ active_schools }} Active
+                </span>
+                <span class="inline-flex items-center gap-1 text-red-500 dark:text-red-400 font-semibold">
+                    <span class="w-2 h-2 rounded-full bg-red-500"></span> {{ inactive_schools }} Suspended
+                </span>
+            </div>
         </div>
+
+        <!-- Platform Users -->
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700/80 p-6 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+                <span class="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-slate-400">Global Accounts</span>
+                <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center">
+                    <i data-lucide="users" class="w-5 h-5 text-emerald-600 dark:text-emerald-400"></i>
+                </div>
+            </div>
+            <div class="flex items-baseline gap-2">
+                <span class="text-3xl font-extrabold text-gray-900 dark:text-white">{{ total_users }}</span>
+                <span class="text-xs font-semibold text-gray-500 dark:text-slate-400">Active Users</span>
+            </div>
+            <div class="mt-4 pt-3 border-t border-gray-100 dark:border-slate-700/60 flex items-center justify-between text-xs">
+                <a href="{% url 'core:platform_user_list' %}" class="text-primary-600 dark:text-primary-400 hover:underline font-semibold flex items-center gap-1">
+                    Manage Users Directory <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                </a>
+            </div>
+        </div>
+
+        <!-- Role Breakdown -->
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700/80 p-6 shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-slate-400">User Role Distribution</span>
+                <i data-lucide="pie-chart" class="w-4 h-4 text-gray-400 dark:text-slate-400"></i>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                <div class="p-2 rounded-lg bg-gray-50 dark:bg-slate-700/50">
+                    <span class="block font-bold text-gray-900 dark:text-white text-base">{{ role_counts.school_admin }}</span>
+                    <span class="text-[10px] text-gray-400 dark:text-slate-400">Admins</span>
+                </div>
+                <div class="p-2 rounded-lg bg-gray-50 dark:bg-slate-700/50">
+                    <span class="block font-bold text-gray-900 dark:text-white text-base">{{ role_counts.teacher }}</span>
+                    <span class="text-[10px] text-gray-400 dark:text-slate-400">Teachers</span>
+                </div>
+                <div class="p-2 rounded-lg bg-gray-50 dark:bg-slate-700/50">
+                    <span class="block font-bold text-gray-900 dark:text-white text-base">{{ role_counts.student }}</span>
+                    <span class="text-[10px] text-gray-400 dark:text-slate-400">Students</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search & Filter Controls -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700/80 p-5 shadow-sm">
+        <form method="get" class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+            <div class="flex-1 flex flex-col sm:flex-row items-center gap-3">
+                <!-- Search input -->
+                <div class="relative flex-1 w-full">
+                    <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                    <input type="text" name="q" value="{{ search_q }}" placeholder="Search by school name or slug..." class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-gray-800 dark:text-white focus:ring-2 focus:ring-primary-500/20 outline-none">
+                </div>
+
+                <!-- Plan filter -->
+                <select name="plan" class="w-full sm:w-40 px-3 py-2.5 rounded-xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-gray-800 dark:text-white outline-none">
+                    <option value="">All Plans</option>
+                    {% for val, label in plan_choices %}
+                    <option value="{{ val }}" {% if plan_filter == val %}selected{% endif %}>{{ label }} Plan</option>
+                    {% endfor %}
+                </select>
+
+                <!-- Status filter -->
+                <select name="status" class="w-full sm:w-40 px-3 py-2.5 rounded-xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-gray-800 dark:text-white outline-none">
+                    <option value="">All Statuses</option>
+                    <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active Only</option>
+                    <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Suspended Only</option>
+                </select>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button type="submit" class="px-5 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5">
+                    <i data-lucide="filter" class="w-4 h-4"></i> Apply Filters
+                </button>
+                {% if search_q or plan_filter or status_filter %}
+                <a href="{% url 'core:dashboard_superadmin' %}" class="px-3 py-2.5 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors">Clear</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- Schools Directory Table -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700/80 overflow-hidden shadow-sm">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-slate-700/80 flex items-center justify-between">
+            <h3 class="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <i data-lucide="building" class="w-5 h-5 text-primary-600 dark:text-primary-400"></i> Registered School Tenants
+            </h3>
+            <span class="text-xs text-gray-400 dark:text-slate-400">Showing {{ schools|length }} school(s)</span>
+        </div>
+
         <div class="overflow-x-auto">
-            <table class="w-full">
+            <table class="w-full text-left">
                 <thead>
-                    <tr class="bg-gray-50">
-                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">School</th>
-                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Plan</th>
-                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Created</th>
+                    <tr class="bg-gray-50 dark:bg-slate-900/50 text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
+                        <th class="px-6 py-3.5">School / Tenant</th>
+                        <th class="px-6 py-3.5">Plan & Limits</th>
+                        <th class="px-6 py-3.5">Usage & Health</th>
+                        <th class="px-6 py-3.5">Unpaid Fees</th>
+                        <th class="px-6 py-3.5">Status</th>
+                        <th class="px-6 py-3.5 text-right">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100">
+                <tbody class="divide-y divide-gray-100 dark:divide-slate-700/60 text-sm">
                     {% for school in schools %}
-                    <tr class="hover:bg-gray-50 transition-colors">
+                    <tr class="hover:bg-gray-50 dark:hover:bg-slate-700/40 transition-colors">
+                        <!-- School Info -->
                         <td class="px-6 py-4">
                             <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-lg bg-primary-100 flex items-center justify-center flex-shrink-0">
-                                    <span class="text-sm font-bold text-primary-700">{{ school.name|first|upper }}</span>
+                                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 text-white font-bold flex items-center justify-center flex-shrink-0 shadow-sm">
+                                    {{ school.name|first|upper }}
                                 </div>
                                 <div>
-                                    <p class="text-sm font-semibold text-gray-900">{{ school.name }}</p>
-                                    <p class="text-xs text-gray-400">{{ school.slug }}</p>
+                                    <p class="font-bold text-gray-900 dark:text-white">{{ school.name }}</p>
+                                    <p class="text-xs text-gray-400 dark:text-slate-400 font-mono">slug: {{ school.slug }}</p>
                                 </div>
                             </div>
                         </td>
+
+                        <!-- Plan & Inline Change -->
                         <td class="px-6 py-4">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
-                                {% if school.plan == 'premium' %}bg-amber-50 text-amber-700
-                                {% elif school.plan == 'basic' %}bg-blue-50 text-blue-700
-                                {% else %}bg-gray-100 text-gray-600{% endif %}">
-                                {{ school.get_plan_display }}
-                            </span>
+                            <form method="post" action="{% url 'core:platform_school_change_plan' school.id %}" class="flex items-center gap-2">
+                                {% csrf_token %}
+                                {% if subscription_plans %}
+                                <select name="subscription_plan_id" onchange="this.form.submit()" class="px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors outline-none cursor-pointer
+                                    {% if school.subscription_plan %}bg-primary-50 dark:bg-primary-950/40 text-primary-800 dark:text-primary-300 border-primary-200 dark:border-primary-700
+                                    {% else %}bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300 border-gray-200 dark:border-slate-600{% endif %}">
+                                    <option value="">— Legacy: {{ school.plan_display_name }} —</option>
+                                    {% for sp in subscription_plans %}
+                                    <option value="{{ sp.id }}" {% if school.subscription_plan_id == sp.id %}selected{% endif %}>{{ sp.name }}{% if sp.price_month == 0 %} (Free){% else %} (${{ sp.price_month }}/mo){% endif %}</option>
+                                    {% endfor %}
+                                </select>
+                                {% else %}
+                                <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300 border border-gray-200 dark:border-slate-600">
+                                    {{ school.plan_display_name }}
+                                </span>
+                                <a href="{% url 'core:platform_plan_list' %}" class="text-[10px] text-primary-500 hover:underline ml-1">Create Plans</a>
+                                {% endif %}
+                            </form>
                         </td>
+
+                        <!-- Usage & Health -->
+                        <td class="px-6 py-4">
+                            <div class="space-y-1.5 w-44 text-xs">
+                                <div>
+                                    <div class="flex justify-between font-medium text-gray-600 dark:text-slate-300">
+                                        <span>Students</span>
+                                        <span class="{% if school.is_student_limit_reached %}text-red-500 font-bold{% endif %}">{{ school.student_count }} / {{ school.student_limit }}</span>
+                                    </div>
+                                    <div class="w-full h-1.5 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden mt-0.5">
+                                        <div class="h-full rounded-full {% if school.is_student_limit_reached %}bg-red-500{% else %}bg-primary-500{% endif %}" style="width: {{ school.student_usage_pct }}%;"></div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div class="flex justify-between font-medium text-gray-600 dark:text-slate-300">
+                                        <span>Staff</span>
+                                        <span class="{% if school.is_staff_limit_reached %}text-red-500 font-bold{% endif %}">{{ school.staff_count }} / {{ school.staff_limit }}</span>
+                                    </div>
+                                    <div class="w-full h-1.5 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden mt-0.5">
+                                        <div class="h-full rounded-full {% if school.is_staff_limit_reached %}bg-red-500{% else %}bg-emerald-500{% endif %}" style="width: {{ school.staff_usage_pct }}%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+
+                        <!-- Unpaid Fees -->
+                        <td class="px-6 py-4">
+                            {% if school.unpaid_invoice_count > 0 %}
+                            <span class="text-xs font-bold text-red-600 dark:text-red-400 block">${{ school.unpaid_invoice_amount }}</span>
+                            <span class="text-[11px] text-gray-400 dark:text-slate-400">{{ school.unpaid_invoice_count }} unpaid invoice(s)</span>
+                            {% else %}
+                            <span class="text-xs text-emerald-600 dark:text-emerald-400 font-medium">All Clear</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Active Status -->
                         <td class="px-6 py-4">
                             {% if school.is_active %}
-                            <span class="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700">
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                Active
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Active
                             </span>
                             {% else %}
-                            <span class="inline-flex items-center gap-1.5 text-xs font-medium text-red-600">
-                                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-                                Inactive
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800/40">
+                                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Suspended
                             </span>
                             {% endif %}
                         </td>
-                        <td class="px-6 py-4 text-sm text-gray-500">
-                            {{ school.created_at|date:"M d, Y" }}
+
+                        <!-- Action Buttons -->
+                        <td class="px-6 py-4 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <!-- Enter School (Impersonate) -->
+                                <a href="{% url 'core:platform_school_impersonate' school.id %}" class="px-2.5 py-1.5 bg-primary-50 dark:bg-primary-950/50 hover:bg-primary-100 dark:hover:bg-primary-900/60 text-primary-700 dark:text-primary-300 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1" title="Enter School Context">
+                                    <i data-lucide="eye" class="w-3.5 h-3.5"></i> Enter
+                                </a>
+
+                                <!-- Edit School -->
+                                <a href="{% url 'core:platform_school_edit' school.id %}" class="px-2.5 py-1.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition-colors" title="Edit Details">
+                                    <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                                </a>
+
+                                <!-- One-Click Suspend / Activate Toggle -->
+                                <form method="post" action="{% url 'core:platform_school_toggle_status' school.id %}" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1
+                                        {% if school.is_active %}bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100{% else %}bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100{% endif %}"
+                                        title="{% if school.is_active %}Suspend School{% else %}Activate School{% endif %}">
+                                        <i data-lucide="{% if school.is_active %}power{% else %}check-circle{% endif %}" class="w-3.5 h-3.5"></i>
+                                        {% if school.is_active %}Suspend{% else %}Activate{% endif %}
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="4" class="px-6 py-12 text-center text-sm text-gray-400">
-                            No schools registered yet.
+                        <td colspan="6" class="px-6 py-12 text-center text-sm text-gray-400">
+                            No schools match your search query.
                         </td>
                     </tr>
                     {% endfor %}
@@ -106,5 +277,34 @@
             </table>
         </div>
     </div>
+
+    <!-- Recent Platform Activity Feed -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700/80 p-6 shadow-sm">
+        <h3 class="text-base font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <i data-lucide="activity" class="w-5 h-5 text-primary-600 dark:text-primary-400"></i> Platform Audit & Activity Trail
+        </h3>
+        <div class="space-y-3">
+            {% for act in recent_activities %}
+            <div class="flex items-start justify-between p-3 bg-gray-50 dark:bg-slate-700/40 rounded-xl text-xs">
+                <div class="flex items-start gap-3">
+                    <div class="p-2 rounded-lg bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 mt-0.5">
+                        <i data-lucide="{% if act.action_type == 'school_created' %}plus-circle{% elif act.action_type == 'plan_changed' %}award{% elif act.action_type == 'school_status_changed' %}power{% else %}check-square{% endif %}" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <p class="font-bold text-gray-900 dark:text-white">{{ act.description }}</p>
+                        <p class="text-gray-400 dark:text-slate-400 mt-0.5">
+                            Actor: <strong>{% if act.actor %}{{ act.actor.get_full_name }}{% else %}System{% endif %}</strong>
+                            {% if act.school %}&bull; Tenant: <strong>{{ act.school.name }}</strong>{% endif %}
+                        </p>
+                    </div>
+                </div>
+                <span class="text-gray-400 dark:text-slate-400 font-mono text-[11px] whitespace-nowrap ml-4">{{ act.created_at|date:"M d, H:i" }}</span>
+            </div>
+            {% empty %}
+            <p class="text-xs text-gray-400 text-center py-6">No platform activity logged yet.</p>
+            {% endfor %}
+        </div>
+    </div>
+
 </div>
 {% endblock %}

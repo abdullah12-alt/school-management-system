@@ -12,14 +12,16 @@ from django.core.paginator import Paginator
 from django.db.models import Sum, Q
 
 from .models import (
-    User, Role, UserRole, PrimaryRoleChoices, STAFF_ROLES,
+    School, User, Role, UserRole, PrimaryRoleChoices, STAFF_ROLES,
     Section, Subject, Student, Staff, ClassRoom, Timetable,
     StudentAttendance, Exam, ExamResult, FeeStructure, Invoice,
-    AttendanceStatusChoices, InvoiceStatusChoices
+    AttendanceStatusChoices, InvoiceStatusChoices, PlatformActivity,
+    ActivityTypeChoices, PlanChoices, SubscriptionPlan
 )
 from .forms import (
     LoginForm, StaffCreateForm, RoleAssignmentForm, RoleCreateForm,
-    ExamCreateForm, InvoiceCreateForm
+    ExamCreateForm, InvoiceCreateForm, SchoolCreateForm, SchoolEditForm,
+    SubscriptionPlanForm
 )
 from .decorators import (
     school_admin_required, teacher_required, accountant_required,
@@ -81,17 +83,396 @@ def dashboard_redirect(request):
 
 @login_required
 def dashboard_superadmin(request):
-    """Platform Super Admin dashboard."""
+    """Platform Super Admin dashboard with health stats, search/filter, and activity feed."""
     if not request.user.is_superuser:
         return redirect('core:dashboard')
 
-    from .models import School
-    schools = School.objects.all()
+    schools_qs = School.objects.all()
+    total_schools = schools_qs.count()
+    active_schools = schools_qs.filter(is_active=True).count()
+    inactive_schools = schools_qs.filter(is_active=False).count()
+
     total_users = User.objects.count()
 
+    # User role breakdown
+    role_counts = {
+        'school_admin': User.objects.filter(primary_role=PrimaryRoleChoices.SCHOOL_ADMIN).count(),
+        'teacher': User.objects.filter(primary_role=PrimaryRoleChoices.TEACHER).count(),
+        'student': User.objects.filter(primary_role=PrimaryRoleChoices.STUDENT).count(),
+        'parent': User.objects.filter(primary_role=PrimaryRoleChoices.PARENT).count(),
+        'accountant': User.objects.filter(primary_role=PrimaryRoleChoices.ACCOUNTANT).count(),
+        'staff': User.objects.filter(primary_role__in=['staff', 'librarian']).count(),
+    }
+
+    # Search & Filter
+    search_q = request.GET.get('q', '').strip()
+    plan_filter = request.GET.get('plan', '')
+    status_filter = request.GET.get('status', '')
+
+    filtered_schools = schools_qs
+    if search_q:
+        filtered_schools = filtered_schools.filter(
+            Q(name__icontains=search_q) | Q(slug__icontains=search_q)
+        )
+    if plan_filter in ['free', 'basic', 'premium']:
+        filtered_schools = filtered_schools.filter(plan=plan_filter)
+    if status_filter == 'active':
+        filtered_schools = filtered_schools.filter(is_active=True)
+    elif status_filter == 'inactive':
+        filtered_schools = filtered_schools.filter(is_active=False)
+
+    recent_activities = PlatformActivity.objects.select_related('school', 'actor')[:15]
+    all_subscription_plans = SubscriptionPlan.objects.all()
+
     return render(request, 'core/dashboard_superadmin.html', {
-        'schools': schools,
+        'total_schools': total_schools,
+        'active_schools': active_schools,
+        'inactive_schools': inactive_schools,
         'total_users': total_users,
+        'role_counts': role_counts,
+        'schools': filtered_schools,
+        'recent_activities': recent_activities,
+        'search_q': search_q,
+        'plan_filter': plan_filter,
+        'status_filter': status_filter,
+        'plan_choices': PlanChoices.choices,
+        'subscription_plans': all_subscription_plans,
+    })
+
+
+@login_required
+def platform_school_create(request):
+    """Platform Superadmin creates a new school and provisions its initial admin account."""
+    if not request.user.is_superuser:
+        return redirect('core:dashboard')
+
+    form = SchoolCreateForm(request.POST or None)
+
+    if request.method == 'POST' and form.is_valid():
+        school = form.save()
+
+        # Provision initial School Admin user
+        admin_user = User.objects.create_user(
+            email=form.cleaned_data['admin_email'],
+            password=form.cleaned_data['admin_password'],
+            first_name=form.cleaned_data['admin_first_name'],
+            last_name=form.cleaned_data['admin_last_name'],
+            school=school,
+            primary_role=PrimaryRoleChoices.SCHOOL_ADMIN,
+        )
+
+        PlatformActivity.objects.create(
+            school=school,
+            actor=request.user,
+            action_type=ActivityTypeChoices.SCHOOL_CREATED,
+            description=f"Created school '{school.name}' ({school.get_plan_display()} Plan) and assigned admin {admin_user.email}."
+        )
+
+        messages.success(
+            request,
+            f"School '{school.name}' created successfully with Admin user {admin_user.email}."
+        )
+        return redirect('core:dashboard_superadmin')
+
+    return render(request, 'core/platform_school_form.html', {
+        'form': form,
+        'title': 'Create New School',
+        'is_edit': False,
+    })
+
+
+@login_required
+def platform_school_edit(request, school_id):
+    """Platform Superadmin edits a school's details."""
+    if not request.user.is_superuser:
+        return redirect('core:dashboard')
+
+    school = get_object_or_404(School, pk=school_id)
+    form = SchoolEditForm(request.POST or None, instance=school)
+
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        PlatformActivity.objects.create(
+            school=school,
+            actor=request.user,
+            action_type=ActivityTypeChoices.SCHOOL_STATUS_CHANGED,
+            description=f"Updated details for school '{school.name}'."
+        )
+        messages.success(request, f"Updated school '{school.name}' successfully.")
+        return redirect('core:dashboard_superadmin')
+
+    return render(request, 'core/platform_school_form.html', {
+        'form': form,
+        'school': school,
+        'title': f"Edit School — {school.name}",
+        'is_edit': True,
+    })
+
+
+@login_required
+def platform_school_toggle_status(request, school_id):
+    """Platform Superadmin toggles active/inactive status (suspend) of a school."""
+    if not request.user.is_superuser:
+        return redirect('core:dashboard')
+
+    school = get_object_or_404(School, pk=school_id)
+    school.is_active = not school.is_active
+    school.save()
+
+    status_str = "Activated" if school.is_active else "Suspended"
+    PlatformActivity.objects.create(
+        school=school,
+        actor=request.user,
+        action_type=ActivityTypeChoices.SCHOOL_STATUS_CHANGED,
+        description=f"{status_str} school '{school.name}'."
+    )
+
+    messages.success(request, f"School '{school.name}' is now {status_str.lower()}.")
+    return redirect('core:dashboard_superadmin')
+
+
+@login_required
+def platform_school_change_plan(request, school_id):
+    """Platform Superadmin changes the subscription plan of a school (now uses SubscriptionPlan FK)."""
+    if not request.user.is_superuser:
+        return redirect('core:dashboard')
+
+    school = get_object_or_404(School, pk=school_id)
+
+    # Accept either subscription_plan_id (new) or legacy plan slug for backward compat
+    plan_id = request.POST.get('subscription_plan_id')
+    old_plan_name = school.plan_display_name
+
+    if plan_id:
+        try:
+            new_plan = SubscriptionPlan.objects.get(pk=plan_id, is_active=True)
+            school.subscription_plan = new_plan
+            school.save()
+            PlatformActivity.objects.create(
+                school=school,
+                actor=request.user,
+                action_type=ActivityTypeChoices.PLAN_CHANGED,
+                description=f"Changed plan for '{school.name}' from {old_plan_name} to {new_plan.name}."
+            )
+            messages.success(request, f"Changed plan for '{school.name}' to {new_plan.name}.")
+        except SubscriptionPlan.DoesNotExist:
+            messages.error(request, 'Invalid plan selected.')
+    else:
+        # Fallback: legacy text plan field
+        new_plan_text = request.POST.get('plan')
+        if new_plan_text in [p.value for p in PlanChoices]:
+            school.plan = new_plan_text
+            school.save()
+            messages.success(request, f"Changed plan for '{school.name}' to {school.get_plan_display()}.")
+
+    return redirect('core:dashboard_superadmin')
+
+
+# ── Subscription Plan Management (Superadmin) ────────────────────────────────
+
+@login_required
+def platform_plan_list(request):
+    """List all subscription plans with usage stats."""
+    if not request.user.is_superuser:
+        return redirect('core:dashboard')
+
+    plans = SubscriptionPlan.objects.prefetch_related('schools').all()
+    return render(request, 'core/platform_plan_list.html', {'plans': plans})
+
+
+@login_required
+def platform_plan_create(request):
+    """Create a new subscription plan."""
+    if not request.user.is_superuser:
+        return redirect('core:dashboard')
+
+    form = SubscriptionPlanForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        plan = form.save()
+        PlatformActivity.objects.create(
+            actor=request.user,
+            action_type=ActivityTypeChoices.PLAN_CHANGED,
+            description=f"Created new subscription plan '{plan.name}' (Students: {plan.student_limit_display}, Staff: {plan.staff_limit_display}, Price: ${plan.price_month}/mo)."
+        )
+        messages.success(request, f"Plan '{plan.name}' created successfully.")
+        return redirect('core:platform_plan_list')
+
+    return render(request, 'core/platform_plan_form.html', {
+        'form': form,
+        'title': 'Create Subscription Plan',
+        'is_edit': False,
+    })
+
+
+@login_required
+def platform_plan_edit(request, plan_id):
+    """Edit an existing subscription plan."""
+    if not request.user.is_superuser:
+        return redirect('core:dashboard')
+
+    plan = get_object_or_404(SubscriptionPlan, pk=plan_id)
+    form = SubscriptionPlanForm(request.POST or None, instance=plan)
+
+    if request.method == 'POST' and form.is_valid():
+        updated = form.save()
+        PlatformActivity.objects.create(
+            actor=request.user,
+            action_type=ActivityTypeChoices.PLAN_CHANGED,
+            description=f"Updated subscription plan '{updated.name}' (Students: {updated.student_limit_display}, Staff: {updated.staff_limit_display}, Price: ${updated.price_month}/mo)."
+        )
+        messages.success(request, f"Plan '{updated.name}' updated.")
+        return redirect('core:platform_plan_list')
+
+    return render(request, 'core/platform_plan_form.html', {
+        'form': form,
+        'plan': plan,
+        'title': f'Edit Plan — {plan.name}',
+        'is_edit': True,
+    })
+
+
+@login_required
+def platform_plan_delete(request, plan_id):
+    """Delete a subscription plan — blocked if any school is currently assigned to it."""
+    if not request.user.is_superuser:
+        return redirect('core:dashboard')
+
+    plan = get_object_or_404(SubscriptionPlan, pk=plan_id)
+
+    if request.method == 'POST':
+        if plan.school_count > 0:
+            messages.error(
+                request,
+                f"Cannot delete plan '{plan.name}' — {plan.school_count} school(s) are currently assigned to it. "
+                "Reassign those schools to another plan first."
+            )
+        else:
+            plan_name = plan.name
+            plan.delete()
+            PlatformActivity.objects.create(
+                actor=request.user,
+                action_type=ActivityTypeChoices.PLAN_CHANGED,
+                description=f"Deleted subscription plan '{plan_name}'."
+            )
+            messages.success(request, f"Plan '{plan_name}' deleted.")
+
+    return redirect('core:platform_plan_list')
+
+
+@login_required
+def platform_school_impersonate(request, school_id):
+    """Platform Superadmin enters impersonation mode for a school."""
+    if not request.user.is_superuser:
+        return redirect('core:dashboard')
+
+    school = get_object_or_404(School, pk=school_id)
+    request.session['impersonated_school_id'] = school.id
+    messages.info(request, f"Entered impersonation mode for '{school.name}'.")
+    return redirect('core:dashboard_school_admin')
+
+
+@login_required
+def platform_exit_impersonation(request):
+    """Exits impersonation mode."""
+    if not request.user.is_superuser:
+        return redirect('core:dashboard')
+
+    request.session.pop('impersonated_school_id', None)
+    messages.info(request, "Exited impersonation mode.")
+    return redirect('core:dashboard_superadmin')
+
+
+@login_required
+def platform_user_list(request):
+    """Global User List across all schools for Platform Superadmin."""
+    if not request.user.is_superuser:
+        return redirect('core:dashboard')
+
+    users_qs = User.objects.all().select_related('school')
+
+    # Search and Filter
+    search_q = request.GET.get('q', '').strip()
+    role_filter = request.GET.get('role', '')
+    school_filter = request.GET.get('school', '')
+    status_filter = request.GET.get('status', '')
+
+    if search_q:
+        users_qs = users_qs.filter(
+            Q(email__icontains=search_q) |
+            Q(first_name__icontains=search_q) |
+            Q(last_name__icontains=search_q)
+        )
+    if role_filter:
+        users_qs = users_qs.filter(primary_role=role_filter)
+    if school_filter:
+        users_qs = users_qs.filter(school_id=school_filter)
+    if status_filter == 'active':
+        users_qs = users_qs.filter(is_active=True)
+    elif status_filter == 'inactive':
+        users_qs = users_qs.filter(is_active=False)
+
+    paginator = Paginator(users_qs, 15)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    schools = School.objects.all()
+
+    return render(request, 'core/platform_user_list.html', {
+        'users': page_obj,
+        'page_obj': page_obj,
+        'schools': schools,
+        'search_q': search_q,
+        'role_filter': role_filter,
+        'school_filter': school_filter,
+        'status_filter': status_filter,
+        'role_choices': PrimaryRoleChoices.choices,
+    })
+
+
+@login_required
+def platform_user_toggle_active(request, user_id):
+    """Platform Superadmin activates or deactivates a user account."""
+    if not request.user.is_superuser:
+        return redirect('core:dashboard')
+
+    target_user = get_object_or_404(User, pk=user_id)
+    if target_user.is_superuser:
+        messages.error(request, "Cannot deactivate superadmin accounts.")
+        return redirect('core:platform_user_list')
+
+    target_user.is_active = not target_user.is_active
+    target_user.save()
+
+    status_str = "activated" if target_user.is_active else "deactivated"
+    PlatformActivity.objects.create(
+        school=target_user.school,
+        actor=request.user,
+        action_type=ActivityTypeChoices.USER_STATUS_CHANGED,
+        description=f"{status_str.capitalize()} user account {target_user.email}."
+    )
+    messages.success(request, f"User {target_user.email} has been {status_str}.")
+    return redirect('core:platform_user_list')
+
+
+@login_required
+def platform_user_reset_password(request, user_id):
+    """Platform Superadmin resets password for a user."""
+    if not request.user.is_superuser:
+        return redirect('core:dashboard')
+
+    target_user = get_object_or_404(User, pk=user_id)
+    if request.method == 'POST':
+        new_password = request.POST.get('new_password')
+        if new_password and len(new_password) >= 8:
+            target_user.set_password(new_password)
+            target_user.save()
+            messages.success(request, f"Password reset successfully for {target_user.email}.")
+            return redirect('core:platform_user_list')
+        else:
+            messages.error(request, "Password must be at least 8 characters long.")
+
+    return render(request, 'core/platform_user_reset_password.html', {
+        'target_user': target_user,
     })
 
 
@@ -251,10 +632,19 @@ def staff_list(request):
 @school_admin_required
 def staff_create(request):
     """Create a new staff member under the current school."""
+    school = request.user.school
+    if school and school.is_staff_limit_reached:
+        messages.error(
+            request,
+            f'Staff limit reached for {school.name} ({school.staff_count}/{school.staff_limit} on {school.get_plan_display()} Plan). '
+            'Please upgrade your plan to add more staff.'
+        )
+        return redirect('core:staff_list')
+
     form = StaffCreateForm(request.POST or None)
 
     if request.method == 'POST' and form.is_valid():
-        user = form.save(school=request.user.school)
+        user = form.save(school=school)
         messages.success(
             request,
             f'{user.get_full_name()} has been added as '

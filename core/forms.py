@@ -5,8 +5,9 @@ from django import forms
 from django.contrib.auth import authenticate
 
 from .models import (
-    User, Role, UserRole, PrimaryRoleChoices, STAFF_ROLES,
-    Section, Subject, Exam, Student, FeeStructure, Invoice, AttendanceStatusChoices
+    School, User, Role, UserRole, PrimaryRoleChoices, STAFF_ROLES,
+    Section, Subject, Exam, Student, FeeStructure, Invoice,
+    AttendanceStatusChoices, PlanChoices, SubscriptionPlan
 )
 
 
@@ -29,6 +30,222 @@ CHECKBOX_CSS = (
     'rounded border-gray-300 text-indigo-600 '
     'focus:ring-indigo-500 h-4 w-4'
 )
+
+
+# ── School Management Forms (Platform Superadmin) ───────────────────────────
+
+class SchoolCreateForm(forms.ModelForm):
+    """
+    Form for Platform Superadmin to create a new School and provision
+    its initial School Admin account.
+    """
+    admin_email = forms.EmailField(
+        label='School Admin Email',
+        widget=forms.EmailInput(attrs={
+            'class': INPUT_CSS,
+            'placeholder': 'admin@school.edu',
+            'id': 'id_admin_email',
+        }),
+        required=True,
+    )
+    admin_first_name = forms.CharField(
+        label='Admin First Name',
+        widget=forms.TextInput(attrs={
+            'class': INPUT_CSS,
+            'placeholder': 'First Name',
+            'id': 'id_admin_first_name',
+        }),
+        required=True,
+    )
+    admin_last_name = forms.CharField(
+        label='Admin Last Name',
+        widget=forms.TextInput(attrs={
+            'class': INPUT_CSS,
+            'placeholder': 'Last Name',
+            'id': 'id_admin_last_name',
+        }),
+        required=True,
+    )
+    admin_password = forms.CharField(
+        label='Admin Initial Password',
+        widget=forms.PasswordInput(attrs={
+            'class': INPUT_CSS,
+            'placeholder': 'Min. 8 characters',
+            'id': 'id_admin_password',
+        }),
+        required=True,
+    )
+
+    class Meta:
+        model = School
+        fields = ['name', 'slug', 'plan', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': 'e.g., Oakridge International School',
+                'id': 'id_name',
+            }),
+            'slug': forms.TextInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': 'oakridge (leave blank to auto-slugify)',
+                'id': 'id_slug',
+            }),
+            'plan': forms.Select(attrs={
+                'class': SELECT_CSS,
+                'id': 'id_plan',
+            }),
+            'is_active': forms.CheckboxInput(attrs={
+                'class': CHECKBOX_CSS,
+                'id': 'id_is_active',
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['slug'].required = False
+        self.fields['is_active'].initial = True
+
+    def clean_admin_password(self):
+        password = self.cleaned_data.get('admin_password')
+        if password and len(password) < 8:
+            raise forms.ValidationError('Password must be at least 8 characters.')
+        return password
+
+    def clean_admin_email(self):
+        email = self.cleaned_data.get('admin_email')
+        if email and User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError('A user with this email address already exists.')
+        return email
+
+
+class SchoolEditForm(forms.ModelForm):
+    """
+    Form for Platform Superadmin to update school details.
+    """
+    class Meta:
+        model = School
+        fields = ['name', 'slug', 'subscription_plan', 'plan', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': INPUT_CSS,
+                'id': 'id_name',
+            }),
+            'slug': forms.TextInput(attrs={
+                'class': INPUT_CSS,
+                'id': 'id_slug',
+            }),
+            'subscription_plan': forms.Select(attrs={
+                'class': SELECT_CSS,
+                'id': 'id_subscription_plan',
+            }),
+            'plan': forms.Select(attrs={
+                'class': SELECT_CSS,
+                'id': 'id_plan',
+            }),
+            'is_active': forms.CheckboxInput(attrs={
+                'class': CHECKBOX_CSS,
+                'id': 'id_is_active',
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['subscription_plan'].required = False
+        self.fields['subscription_plan'].empty_label = '— Use Legacy Plan —'
+        self.fields['subscription_plan'].queryset = SubscriptionPlan.objects.filter(is_active=True)
+
+
+# ── Subscription Plan Management Form (Platform Superadmin) ───────────────────
+
+class SubscriptionPlanForm(forms.ModelForm):
+    """
+    Form for Platform Superadmin to create or edit a SubscriptionPlan.
+
+    Adds companion boolean checkboxes for Unlimited student/staff limits:
+        - 'student_limit_unlimited' → if checked, student_limit is saved as NULL
+        - 'staff_limit_unlimited'   → if checked, staff_limit is saved as NULL
+    """
+    student_limit_unlimited = forms.BooleanField(
+        required=False,
+        label='No student limit (Unlimited)',
+        widget=forms.CheckboxInput(attrs={'class': CHECKBOX_CSS, 'id': 'id_student_limit_unlimited'}),
+    )
+    staff_limit_unlimited = forms.BooleanField(
+        required=False,
+        label='No staff limit (Unlimited)',
+        widget=forms.CheckboxInput(attrs={'class': CHECKBOX_CSS, 'id': 'id_staff_limit_unlimited'}),
+    )
+
+    class Meta:
+        model = SubscriptionPlan
+        fields = ['name', 'slug', 'description', 'price_month', 'student_limit', 'staff_limit', 'is_active', 'order']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': 'e.g. Free, Basic, Enterprise',
+                'id': 'id_name',
+            }),
+            'slug': forms.TextInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': 'Leave blank to auto-generate',
+                'id': 'id_slug',
+            }),
+            'description': forms.Textarea(attrs={
+                'class': INPUT_CSS,
+                'rows': 3,
+                'placeholder': 'Short description of this plan...',
+                'id': 'id_description',
+            }),
+            'price_month': forms.NumberInput(attrs={
+                'class': INPUT_CSS,
+                'step': '0.01',
+                'min': '0',
+                'placeholder': '0.00',
+                'id': 'id_price_month',
+            }),
+            'student_limit': forms.NumberInput(attrs={
+                'class': INPUT_CSS,
+                'min': '0',
+                'placeholder': 'e.g. 50',
+                'id': 'id_student_limit',
+            }),
+            'staff_limit': forms.NumberInput(attrs={
+                'class': INPUT_CSS,
+                'min': '0',
+                'placeholder': 'e.g. 5',
+                'id': 'id_staff_limit',
+            }),
+            'is_active': forms.CheckboxInput(attrs={
+                'class': CHECKBOX_CSS,
+                'id': 'id_is_active',
+            }),
+            'order': forms.NumberInput(attrs={
+                'class': INPUT_CSS,
+                'min': '0',
+                'id': 'id_order',
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['slug'].required = False
+        self.fields['student_limit'].required = False
+        self.fields['staff_limit'].required = False
+        # Pre-check 'unlimited' boxes if existing instance has NULL limits
+        if self.instance and self.instance.pk:
+            if self.instance.student_limit is None:
+                self.fields['student_limit_unlimited'].initial = True
+            if self.instance.staff_limit is None:
+                self.fields['staff_limit_unlimited'].initial = True
+
+    def clean(self):
+        cleaned = super().clean()
+        # If 'Unlimited' checkbox is ticked, force the numeric limit field to None
+        if cleaned.get('student_limit_unlimited'):
+            cleaned['student_limit'] = None
+        if cleaned.get('staff_limit_unlimited'):
+            cleaned['staff_limit'] = None
+        return cleaned
 
 
 # ── Login Form ───────────────────────────────────────────────────────────────

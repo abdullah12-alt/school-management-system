@@ -22,7 +22,8 @@ from django.core.management.base import BaseCommand
 from core.models import (
     School, User, Role, UserRole, Department,
     ClassRoom, Section, Subject, Student, Staff, Timetable,
-    StudentAttendance, Exam, ExamResult, FeeStructure, Invoice
+    StudentAttendance, Exam, ExamResult, FeeStructure, Invoice,
+    PlatformActivity, ActivityTypeChoices, SubscriptionPlan
 )
 
 
@@ -47,11 +48,66 @@ class Command(BaseCommand):
             superadmin.save()
         self.stdout.write('  [+] Platform Admin: admin@schoolhub.com / admin123456')
 
-        # ── School A: Greenwood Academy ──────────────────────────────
+        # ── Subscription Plans ──────────────────────────────────
+        plan_free, _ = SubscriptionPlan.objects.get_or_create(
+            slug='free',
+            defaults={
+                'name': 'Free',
+                'description': 'Perfect for small schools getting started. Limited to 50 students and 5 staff.',
+                'price_month': 0,
+                'student_limit': 50,
+                'staff_limit': 5,
+                'is_active': True,
+                'order': 1,
+            }
+        )
+        plan_basic, _ = SubscriptionPlan.objects.get_or_create(
+            slug='basic',
+            defaults={
+                'name': 'Basic',
+                'description': 'For growing schools that need more capacity.',
+                'price_month': 29.00,
+                'student_limit': 200,
+                'staff_limit': 25,
+                'is_active': True,
+                'order': 2,
+            }
+        )
+        plan_premium, _ = SubscriptionPlan.objects.get_or_create(
+            slug='premium',
+            defaults={
+                'name': 'Premium',
+                'description': 'Full-featured plan for large institutions with high throughput.',
+                'price_month': 79.00,
+                'student_limit': 1000,
+                'staff_limit': 100,
+                'is_active': True,
+                'order': 3,
+            }
+        )
+        plan_enterprise, _ = SubscriptionPlan.objects.get_or_create(
+            slug='enterprise',
+            defaults={
+                'name': 'Enterprise',
+                'description': 'Custom plan for large institutions. No limits on students or staff.',
+                'price_month': 199.00,
+                'student_limit': None,  # Unlimited
+                'staff_limit': None,    # Unlimited
+                'is_active': True,
+                'order': 4,
+            }
+        )
+        self.stdout.write('  [+] Seeded 4 Subscription Plans (Free / Basic / Premium / Enterprise)')
+
+        # ── School A: Greenwood Academy ─────────────────────────────
         school_a, _ = School.objects.get_or_create(
             slug='greenwood',
-            defaults={'name': 'Greenwood Academy', 'plan': 'premium', 'is_active': True}
+            defaults={'name': 'Greenwood Academy', 'plan': 'premium', 'subscription_plan': plan_premium, 'is_active': True}
         )
+        # Ensure existing record links to subscription plan
+        if not school_a.subscription_plan:
+            school_a.subscription_plan = plan_premium
+            school_a.save()
         self.stdout.write(f'  [+] School A: {school_a.name}')
 
         # School Admin A
@@ -300,6 +356,20 @@ class Command(BaseCommand):
             defaults={'date': today - datetime.timedelta(days=5), 'max_marks': 50.00}
         )
         ExamResult.unscoped.get_or_create(school=school_b, exam=exam_b, student=student_b, subject=subject_b, defaults={'marks_obtained': 44.00})
+
+        # Platform Activities Log
+        PlatformActivity.objects.get_or_create(
+            school=school_a,
+            action_type=ActivityTypeChoices.SCHOOL_CREATED,
+            description="Created tenant Greenwood Academy on Premium Plan and assigned initial admin admin@greenwood.edu",
+            defaults={'actor': superadmin}
+        )
+        PlatformActivity.objects.get_or_create(
+            school=school_b,
+            action_type=ActivityTypeChoices.SCHOOL_CREATED,
+            description="Created tenant Sunrise School on Basic Plan and assigned initial admin admin@sunrise.edu",
+            defaults={'actor': superadmin}
+        )
 
         self.stdout.write(self.style.SUCCESS('\nDemo data seeded successfully!'))
         self.stdout.write(self.style.SUCCESS('=' * 55))

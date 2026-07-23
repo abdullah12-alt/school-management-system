@@ -221,3 +221,101 @@ class Chunk2AttendanceTests(TestCase):
 
         with self.assertRaises(IntegrityError):
             StudentAttendance.objects.create(student=self.student, section=self.section, date=today, status='absent')
+
+
+class PlatformAdminTests(TestCase):
+    """Test Platform Superadmin management features, tenant control, and plan limits."""
+
+    def setUp(self):
+        self.superadmin = User.objects.create_superuser(
+            email='platform@admin.com', password='password123'
+        )
+        self.school = School.objects.create(
+            name='Test Academy', slug='test-academy', plan='free', is_active=True
+        )
+        self.school_admin = User.objects.create_user(
+            email='admin@testacademy.edu', password='password123',
+            school=self.school, primary_role='school_admin'
+        )
+
+    def test_superadmin_dashboard_access(self):
+        """Platform Superadmin can view the platform overview dashboard."""
+        self.client.login(username='platform@admin.com', password='password123')
+        response = self.client.get(reverse('core:dashboard_superadmin'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Test Academy')
+
+    def test_school_create_with_initial_admin(self):
+        """Platform Superadmin can create a new school and provision its admin."""
+        self.client.login(username='platform@admin.com', password='password123')
+        response = self.client.post(reverse('core:platform_school_create'), {
+            'name': 'New Horizon School',
+            'slug': 'new-horizon',
+            'plan': 'basic',
+            'is_active': True,
+            'admin_email': 'admin@newhorizon.edu',
+            'admin_first_name': 'Horizon',
+            'admin_last_name': 'Admin',
+            'admin_password': 'password123',
+        })
+        self.assertEqual(response.status_code, 302)
+        new_school = School.objects.get(slug='new-horizon')
+        self.assertEqual(new_school.name, 'New Horizon School')
+
+        admin_user = User.objects.get(email='admin@newhorizon.edu')
+        self.assertEqual(admin_user.school, new_school)
+        self.assertEqual(admin_user.primary_role, 'school_admin')
+
+    def test_school_toggle_status_and_suspended_login_block(self):
+        """Deactivating a school prevents users from logging in."""
+        self.client.login(username='platform@admin.com', password='password123')
+        toggle_res = self.client.post(reverse('core:platform_school_toggle_status', args=[self.school.id]))
+        self.assertEqual(toggle_res.status_code, 302)
+
+        self.school.refresh_from_db()
+        self.assertFalse(self.school.is_active)
+
+        # Attempt to log in as school admin of suspended school
+        self.client.logout()
+        login_res = self.client.post(reverse('core:login'), {
+            'email': 'admin@testacademy.edu',
+            'password': 'password123',
+        })
+        self.assertEqual(login_res.status_code, 200)
+        self.assertContains(login_res, 'Your school account has been deactivated')
+
+    def test_impersonation_session_flow(self):
+        """Superadmin can enter and exit impersonation mode for a school."""
+        self.client.login(username='platform@admin.com', password='password123')
+        
+        # Enter impersonation
+        imp_res = self.client.get(reverse('core:platform_school_impersonate', args=[self.school.id]))
+        self.assertEqual(imp_res.status_code, 302)
+        self.assertEqual(self.client.session.get('impersonated_school_id'), self.school.id)
+
+        # Exit impersonation
+        exit_res = self.client.get(reverse('core:platform_exit_impersonation'))
+        self.assertEqual(exit_res.status_code, 302)
+        self.assertNotIn('impersonated_school_id', self.client.session)
+
+    def test_staff_limit_enforcement(self):
+        """School on Free plan cannot exceed staff limit."""
+        # Free plan limit is 5 staff
+        for i in range(5):
+            User.objects.create_user(
+                email=f'staff{i}@testacademy.edu', password='password123',
+                school=self.school, primary_role='teacher'
+            )
+        self.assertTrue(self.school.is_staff_limit_reached)
+
+        # Attempt to create 6th staff member
+        self.client.login(username='admin@testacademy.edu', password='password123')
+        res = self.client.post(reverse('core:staff_create'), {
+            'first_name': 'Extra', 'last_name': 'Staff',
+            'email': 'extra@testacademy.edu', 'primary_role': 'teacher',
+            'password': 'password123', 'password_confirm': 'password123',
+        })
+        self.assertEqual(res.status_code, 302)
+        # Verify 6th staff was not created
+        self.assertFalse(User.objects.filter(email='extra@testacademy.edu').exists())
+

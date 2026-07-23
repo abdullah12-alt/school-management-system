@@ -76,6 +76,132 @@ a, button, input, select, textarea {
     transition-timing-function: ease;
 }
 
+/* ─── Dark Mode Global Rules ────────────────────────────────────────────── */
+.dark {
+    color-scheme: dark;
+}
+
+.dark body {
+    background-color: #0f172a; /* Slate 900 */
+    color: #f8fafc;
+}
+
+/* ─── Dark Mode Cards & Containers Override ─────────────────────────────── */
+.dark .bg-white {
+    background-color: #1e293b !important; /* Slate 800 */
+    border-color: #334155 !important; /* Slate 700 */
+}
+
+.dark .bg-gray-50 {
+    background-color: #0f172a !important; /* Slate 900 */
+}
+
+.dark .bg-gray-100 {
+    background-color: #334155 !important; /* Slate 700 */
+}
+
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-gray-300 {
+    border-color: #334155 !important; /* Slate 700 */
+}
+
+.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+    border-color: #334155 !important;
+}
+
+/* ─── Dark Mode Typography Colors ───────────────────────────────────────── */
+.dark .text-gray-900 {
+    color: #f8fafc !important;
+}
+
+.dark .text-gray-800 {
+    color: #e2e8f0 !important;
+}
+
+.dark .text-gray-700 {
+    color: #cbd5e1 !important;
+}
+
+.dark .text-gray-600 {
+    color: #94a3b8 !important;
+}
+
+.dark .text-gray-500 {
+    color: #94a3b8 !important;
+}
+
+/* ─── Dark Mode Table Styles ────────────────────────────────────────────── */
+.dark tr.bg-gray-50,
+.dark th.bg-gray-50,
+.dark thead tr {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+}
+
+.dark th {
+    color: #94a3b8 !important;
+}
+
+.dark tr.hover\:bg-gray-50:hover,
+.dark tr.hover\:bg-gray-50\/80:hover {
+    background-color: #334155 !important;
+}
+
+/* ─── Dark Mode Inputs, Selects, & Textareas ────────────────────────────── */
+.dark input[type="text"],
+.dark input[type="email"],
+.dark input[type="password"],
+.dark input[type="number"],
+.dark input[type="date"],
+.dark select,
+.dark textarea {
+    background-color: #0f172a !important;
+    border-color: #475569 !important;
+    color: #f8fafc !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+    color: #64748b !important;
+}
+
+/* ─── Dark Mode Active Nav Link ─────────────────────────────────────────── */
+.dark .nav-link.active,
+.dark .nav-link[aria-current="page"] {
+    color: #818cf8 !important;
+    background-color: rgba(99, 102, 241, 0.15) !important;
+}
+
+.dark .nav-link.active i,
+.dark .nav-link[aria-current="page"] i {
+    color: #a5b4fc !important;
+}
+
+/* ─── Dark Mode Badges & Accents ────────────────────────────────────────── */
+.dark .bg-primary-50 {
+    background-color: rgba(99, 102, 241, 0.15) !important;
+    color: #a5b4fc !important;
+}
+
+.dark .text-primary-700 {
+    color: #a5b4fc !important;
+}
+
+.dark .text-primary-600 {
+    color: #818cf8 !important;
+}
+
+/* ─── Dark Mode Scrollbar ──────────────────────────────────────────────── */
+.dark ::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.25);
+}
+
 /* ─── Print styles ────────────────────────────────────────────────────── */
 @media print {
     aside, header, .no-print {

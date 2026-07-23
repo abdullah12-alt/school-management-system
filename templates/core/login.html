@@ -3,7 +3,15 @@
 {% block title %}Sign In — SchoolHub{% endblock %}
 
 {% block public_content %}
-<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-primary-950 to-slate-900 px-4 py-12">
+<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-primary-950 to-slate-900 px-4 py-12 relative">
+
+    <!-- Theme Toggle at top right -->
+    <div class="absolute top-4 right-4 z-10">
+        <button onclick="toggleTheme()" class="p-2.5 rounded-xl bg-white/10 text-white hover:bg-white/20 backdrop-blur-md transition-colors flex items-center justify-center" title="Toggle Light/Dark Theme" aria-label="Toggle theme">
+            <i data-lucide="sun" class="w-5 h-5 text-amber-400 hidden dark:block"></i>
+            <i data-lucide="moon" class="w-5 h-5 text-gray-200 block dark:hidden"></i>
+        </button>
+    </div>
 
     <!-- Background decoration -->
     <div class="absolute inset-0 overflow-hidden pointer-events-none">
