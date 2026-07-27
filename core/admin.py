@@ -7,7 +7,8 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import (
     School, Department, User, Role, UserRole,
     ClassRoom, Section, Subject, Student, Staff, Timetable,
-    StudentAttendance, Exam, ExamResult, FeeStructure, Invoice
+    StudentAttendance, Exam, ExamResult, FeeStructure, Invoice,
+    Syllabus, SyllabusUnit,
 )
 
 
@@ -32,8 +33,8 @@ class ScopedAdminMixin:
 
 @admin.register(School)
 class SchoolAdmin(admin.ModelAdmin):
-    list_display = ['name', 'slug', 'plan', 'is_active', 'created_at']
-    list_filter = ['plan', 'is_active']
+    list_display = ['name', 'slug', 'plan', 'currency', 'theme_color', 'is_active', 'created_at']
+    list_filter = ['plan', 'currency', 'theme_color', 'is_active']
     search_fields = ['name', 'slug']
     prepopulated_fields = {'slug': ('name',)}
     readonly_fields = ['created_at']
@@ -175,3 +176,23 @@ class InvoiceAdmin(ScopedAdminMixin, admin.ModelAdmin):
     list_display = ['id', 'student', 'fee_structure', 'amount_due', 'amount_paid', 'due_date', 'status', 'school']
     list_filter = ['school', 'status', 'due_date']
     search_fields = ['student__user__first_name', 'student__user__last_name', 'student__admission_number']
+
+
+class SyllabusUnitInline(admin.TabularInline):
+    model = SyllabusUnit
+    extra = 1
+
+
+@admin.register(Syllabus)
+class SyllabusAdmin(ScopedAdminMixin, admin.ModelAdmin):
+    list_display = ['title', 'classroom', 'subject', 'academic_year', 'school']
+    list_filter = ['school', 'classroom', 'subject', 'academic_year']
+    search_fields = ['title', 'subject__name', 'classroom__name']
+    inlines = [SyllabusUnitInline]
+
+
+@admin.register(SyllabusUnit)
+class SyllabusUnitAdmin(admin.ModelAdmin):
+    list_display = ['title', 'syllabus', 'order']
+    list_filter = ['syllabus__school', 'syllabus']
+    search_fields = ['title', 'syllabus__title']

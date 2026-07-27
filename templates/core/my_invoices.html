@@ -40,10 +40,10 @@
                     <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-6 py-4 text-sm font-bold text-gray-900">#{{ inv.id }}</td>
                         <td class="px-6 py-4 text-sm text-gray-700">{{ inv.fee_structure.name }}</td>
-                        <td class="px-6 py-4 text-sm font-semibold text-gray-900">${{ inv.amount_due }}</td>
-                        <td class="px-6 py-4 text-sm text-emerald-600 font-semibold">${{ inv.amount_paid }}</td>
+                        <td class="px-6 py-4 text-sm font-semibold text-gray-900">{{ school_currency_symbol }}{{ inv.amount_due }}</td>
+                        <td class="px-6 py-4 text-sm text-emerald-600 font-semibold">{{ school_currency_symbol }}{{ inv.amount_paid }}</td>
                         <td class="px-6 py-4 text-sm font-bold {% if inv.remaining_balance > 0 %}text-red-600{% else %}text-emerald-600{% endif %}">
-                            ${{ inv.remaining_balance }}
+                            {{ school_currency_symbol }}{{ inv.remaining_balance }}
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-500">{{ inv.due_date|date:"M d, Y" }}</td>
                         <td class="px-6 py-4">

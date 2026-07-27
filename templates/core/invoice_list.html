@@ -49,8 +49,8 @@
                         <td class="px-6 py-4 text-sm font-bold text-gray-900">#{{ inv.id }}</td>
                         <td class="px-6 py-4 text-sm text-gray-800 font-medium">{{ inv.student.user.get_full_name }}</td>
                         <td class="px-6 py-4 text-sm text-gray-600">{{ inv.fee_structure.name }}</td>
-                        <td class="px-6 py-4 text-sm font-semibold text-gray-900">${{ inv.amount_due }}</td>
-                        <td class="px-6 py-4 text-sm text-emerald-700 font-semibold">${{ inv.amount_paid }}</td>
+                        <td class="px-6 py-4 text-sm font-semibold text-gray-900">{{ school_currency_symbol }}{{ inv.amount_due }}</td>
+                        <td class="px-6 py-4 text-sm text-emerald-700 font-semibold">{{ school_currency_symbol }}{{ inv.amount_paid }}</td>
                         <td class="px-6 py-4 text-sm text-gray-500">{{ inv.due_date|date:"M d, Y" }}</td>
                         <td class="px-6 py-4">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold

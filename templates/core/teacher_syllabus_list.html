@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Syllabus — SchoolHub{% endblock %}
+{% block page_title %}Syllabus{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <p class="text-sm text-gray-500">Curriculum for classes you teach.</p>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {% for syllabus in syllabi %}
+        <a href="{% url 'core:teacher_syllabus_detail' syllabus.pk %}" class="block bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
+            <h4 class="text-sm font-bold text-gray-900">{{ syllabus.title }}</h4>
+            <p class="text-xs text-gray-500 mt-1">
+                {{ syllabus.classroom.name }} · {{ syllabus.subject.name }}
+                {% if syllabus.academic_year %} · {{ syllabus.academic_year }}{% endif %}
+            </p>
+            <p class="text-xs text-gray-400 mt-2">{{ syllabus.units.count }} unit{{ syllabus.units.count|pluralize }}</p>
+        </a>
+        {% empty %}
+        <div class="col-span-full bg-white rounded-xl border border-gray-200 p-12 text-center">
+            <p class="text-sm font-semibold text-gray-900 mb-1">No syllabus available</p>
+            <p class="text-xs text-gray-400">Your school admin can create syllabi for your classes.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

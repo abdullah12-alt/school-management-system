@@ -24,6 +24,7 @@
     <!-- Tailwind CSS v3 (CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
+        const schoolPrimary = {{ school_theme_palette_json|safe }};
         tailwind.config = {
             darkMode: 'class',
             theme: {
@@ -32,19 +33,7 @@
                         sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
                     },
                     colors: {
-                        primary: {
-                            50:  '#eef2ff',
-                            100: '#e0e7ff',
-                            200: '#c7d2fe',
-                            300: '#a5b4fc',
-                            400: '#818cf8',
-                            500: '#6366f1',
-                            600: '#4f46e5',
-                            700: '#4338ca',
-                            800: '#3730a3',
-                            900: '#312e81',
-                            950: '#1e1b4b',
-                        }
+                        primary: schoolPrimary
                     }
                 }
             }
@@ -88,7 +77,51 @@
                     Dashboard
                 </a>
 
-                {% if user.primary_role == 'teacher' or is_school_admin or is_platform_admin %}
+                {% if user.primary_role == 'teacher' %}
+                <p class="px-3 pt-4 text-[11px] font-semibold text-gray-400 dark:text-slate-400 uppercase tracking-wider mb-2">Teacher Portal</p>
+
+                <a href="{% url 'core:teacher_my_classes' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="school" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    My Classes
+                </a>
+
+                <a href="{% url 'core:teacher_timetable' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="calendar-days" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    Timetable
+                </a>
+
+                <a href="{% url 'core:attendance_mark' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="calendar-check" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    Mark Attendance
+                </a>
+
+                <a href="{% url 'core:teacher_attendance_history' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="history" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    Attendance History
+                </a>
+
+                <a href="{% url 'core:exam_list' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="file-spreadsheet" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    Exams & Marks
+                </a>
+
+                <a href="{% url 'core:teacher_syllabus_list' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="notebook-pen" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    Syllabus
+                </a>
+
+                <a href="{% url 'core:teacher_students' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="graduation-cap" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    My Students
+                </a>
+
+                <a href="{% url 'core:profile' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="user-cog" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    Profile
+                </a>
+                {% endif %}
+
+                {% if is_school_admin or is_platform_admin %}
                 <p class="px-3 pt-4 text-[11px] font-semibold text-gray-400 dark:text-slate-400 uppercase tracking-wider mb-2">Academics & Attendance</p>
 
                 <a href="{% url 'core:attendance_mark' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
@@ -131,6 +164,45 @@
                 {% endif %}
 
                 {% if is_school_admin or is_platform_admin %}
+                <p class="px-3 pt-5 text-[11px] font-semibold text-gray-400 dark:text-slate-400 uppercase tracking-wider mb-2">Academics</p>
+
+                <a href="{% url 'core:classroom_list' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="school" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    Classes
+                </a>
+
+                <a href="{% url 'core:section_list' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="layers" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    Sections
+                </a>
+
+                <a href="{% url 'core:subject_list' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="book-open" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    Subjects
+                </a>
+
+                <a href="{% url 'core:syllabus_list' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="notebook-pen" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    Syllabus
+                </a>
+
+                <a href="{% url 'core:timetable_list' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="calendar-days" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    Timetable
+                </a>
+
+                <p class="px-3 pt-5 text-[11px] font-semibold text-gray-400 dark:text-slate-400 uppercase tracking-wider mb-2">Students</p>
+
+                <a href="{% url 'core:student_list' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="graduation-cap" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    All Students
+                </a>
+
+                <a href="{% url 'core:student_create' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="user-plus" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    Add Student
+                </a>
+
                 <p class="px-3 pt-5 text-[11px] font-semibold text-gray-400 dark:text-slate-400 uppercase tracking-wider mb-2">Management</p>
 
                 <a href="{% url 'core:staff_list' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
@@ -146,6 +218,11 @@
                 <a href="{% url 'core:role_list' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
                     <i data-lucide="shield" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
                     Roles
+                </a>
+
+                <a href="{% url 'core:school_preferences' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="settings" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    Preferences
                 </a>
                 {% endif %}
 

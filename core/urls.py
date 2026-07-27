@@ -47,6 +47,59 @@ urlpatterns = [
     path('roles/', views.role_list, name='role_list'),
     path('roles/create/', views.role_create, name='role_create'),
 
+    # Academics — Classes
+    path('academics/classes/', views.classroom_list, name='classroom_list'),
+    path('academics/classes/create/', views.classroom_create, name='classroom_create'),
+    path('academics/classes/<int:classroom_id>/edit/', views.classroom_edit, name='classroom_edit'),
+    path('academics/classes/<int:classroom_id>/delete/', views.classroom_delete, name='classroom_delete'),
+
+    # Academics — Sections
+    path('academics/sections/', views.section_list, name='section_list'),
+    path('academics/sections/create/', views.section_create, name='section_create'),
+    path('academics/sections/<int:section_id>/edit/', views.section_edit, name='section_edit'),
+    path('academics/sections/<int:section_id>/delete/', views.section_delete, name='section_delete'),
+
+    # Academics — Subjects
+    path('academics/subjects/', views.subject_list, name='subject_list'),
+    path('academics/subjects/create/', views.subject_create, name='subject_create'),
+    path('academics/subjects/<int:subject_id>/edit/', views.subject_edit, name='subject_edit'),
+    path('academics/subjects/<int:subject_id>/delete/', views.subject_delete, name='subject_delete'),
+
+    # Academics — Syllabus
+    path('academics/syllabus/', views.syllabus_list, name='syllabus_list'),
+    path('academics/syllabus/create/', views.syllabus_create, name='syllabus_create'),
+    path('academics/syllabus/<int:syllabus_id>/', views.syllabus_detail, name='syllabus_detail'),
+    path('academics/syllabus/<int:syllabus_id>/edit/', views.syllabus_edit, name='syllabus_edit'),
+    path('academics/syllabus/<int:syllabus_id>/delete/', views.syllabus_delete, name='syllabus_delete'),
+    path('academics/syllabus/units/<int:unit_id>/delete/', views.syllabus_unit_delete, name='syllabus_unit_delete'),
+
+    # Academics — Timetable
+    path('academics/timetable/', views.timetable_list, name='timetable_list'),
+    path('academics/timetable/create/', views.timetable_create, name='timetable_create'),
+    path('academics/timetable/<int:slot_id>/edit/', views.timetable_edit, name='timetable_edit'),
+    path('academics/timetable/<int:slot_id>/delete/', views.timetable_delete, name='timetable_delete'),
+
+    # Students
+    path('students/', views.student_list, name='student_list'),
+    path('students/create/', views.student_create, name='student_create'),
+    path('students/<int:student_id>/', views.student_detail, name='student_detail'),
+    path('students/<int:student_id>/edit/', views.student_edit, name='student_edit'),
+    path('students/<int:student_id>/toggle-active/', views.student_toggle_active, name='student_toggle_active'),
+    path('students/<int:student_id>/delete/', views.student_delete, name='student_delete'),
+
+    # School Preferences
+    path('preferences/', views.school_preferences, name='school_preferences'),
+
+    # Teacher Portal
+    path('teacher/classes/', views.teacher_my_classes, name='teacher_my_classes'),
+    path('teacher/timetable/', views.teacher_timetable, name='teacher_timetable'),
+    path('teacher/attendance/history/', views.teacher_attendance_history, name='teacher_attendance_history'),
+    path('teacher/students/', views.teacher_students, name='teacher_students'),
+    path('teacher/students/<int:student_id>/', views.teacher_student_detail, name='teacher_student_detail'),
+    path('teacher/syllabus/', views.teacher_syllabus_list, name='teacher_syllabus_list'),
+    path('teacher/syllabus/<int:syllabus_id>/', views.teacher_syllabus_detail, name='teacher_syllabus_detail'),
+    path('profile/', views.profile_view, name='profile'),
+
     # Attendance
     path('attendance/mark/', views.attendance_mark, name='attendance_mark'),
     path('attendance/history/', views.attendance_history, name='attendance_history'),

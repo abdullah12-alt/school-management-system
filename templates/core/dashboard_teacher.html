@@ -6,7 +6,6 @@
 {% block content %}
 <div class="space-y-8">
 
-    <!-- Banner -->
     <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary-600 to-primary-800 p-6 lg:p-8 text-white">
         <h2 class="text-xl lg:text-2xl font-bold">Welcome back, {{ user.first_name }}!</h2>
         <p class="mt-1 text-primary-200 text-sm">
@@ -14,9 +13,40 @@
         </p>
     </div>
 
-    <!-- Assigned Sections Grid -->
+    <div class="flex flex-wrap gap-3">
+        <a href="{% url 'core:attendance_mark' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-semibold">
+            <i data-lucide="calendar-check" class="w-4 h-4"></i> Mark Attendance
+        </a>
+        <a href="{% url 'core:exam_list' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold">
+            <i data-lucide="award" class="w-4 h-4"></i> Exams & Marks
+        </a>
+        <a href="{% url 'core:teacher_timetable' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold">
+            <i data-lucide="calendar-days" class="w-4 h-4"></i> Timetable
+        </a>
+        <a href="{% url 'core:teacher_students' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold">
+            <i data-lucide="graduation-cap" class="w-4 h-4"></i> My Students
+        </a>
+    </div>
+
+    {% if today_slots %}
     <div>
-        <h3 class="text-base font-bold text-gray-900 mb-4">Your Assigned Sections</h3>
+        <h3 class="text-base font-bold text-gray-900 mb-4">Today’s Classes ({{ today|date:"l, M d" }})</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for slot in today_slots %}
+            <div class="bg-white rounded-xl border border-gray-200 p-4">
+                <p class="text-sm font-bold text-gray-900">{{ slot.subject.name }}</p>
+                <p class="text-xs text-gray-500 mt-1">{{ slot.section }} · {{ slot.start_time|time:"H:i" }}–{{ slot.end_time|time:"H:i" }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div>
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-base font-bold text-gray-900">Your Assigned Sections</h3>
+            <a href="{% url 'core:teacher_my_classes' %}" class="text-xs font-semibold text-primary-600 hover:text-primary-700">View all</a>
+        </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {% for section in sections %}
@@ -34,10 +64,10 @@
 
                 <div class="mt-6 pt-4 border-t border-gray-100 flex items-center gap-3">
                     <a href="{% url 'core:attendance_mark' %}?section_id={{ section.id }}" class="flex-1 text-center py-2 px-3 bg-primary-50 hover:bg-primary-100 text-primary-700 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5">
-                        <i data-lucide="calendar-check" class="w-3.5 h-3.5"></i> Mark Attendance
+                        <i data-lucide="calendar-check" class="w-3.5 h-3.5"></i> Attendance
                     </a>
-                    <a href="{% url 'core:exam_list' %}" class="flex-1 text-center py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5">
-                        <i data-lucide="award" class="w-3.5 h-3.5"></i> Enter Marks
+                    <a href="{% url 'core:teacher_students' %}?section={{ section.id }}" class="flex-1 text-center py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                        <i data-lucide="users" class="w-3.5 h-3.5"></i> Students
                     </a>
                 </div>
             </div>

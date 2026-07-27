@@ -1,6 +1,9 @@
 """
 Template context processors to inject global data into all templates.
 """
+import json
+
+from .models import CURRENCY_SYMBOLS, THEME_PALETTES, ThemeColorChoices, CurrencyChoices
 
 
 def global_context(request):
@@ -13,6 +16,8 @@ def global_context(request):
         'is_school_admin': False,
         'is_platform_admin': False,
         'impersonated_school': None,
+        'school_currency_symbol': CURRENCY_SYMBOLS[CurrencyChoices.USD],
+        'school_theme_palette_json': json.dumps(THEME_PALETTES[ThemeColorChoices.INDIGO]),
     }
 
     if hasattr(request, 'user') and request.user.is_authenticated:
@@ -26,5 +31,10 @@ def global_context(request):
             context['current_school'] = request.impersonated_school
         else:
             context['current_school'] = user.school
+
+        school = context['current_school']
+        if school:
+            context['school_currency_symbol'] = school.currency_symbol
+            context['school_theme_palette_json'] = json.dumps(school.theme_palette)
 
     return context

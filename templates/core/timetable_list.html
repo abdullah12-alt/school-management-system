@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Timetable — SchoolHub{% endblock %}
+{% block page_title %}Timetable{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <p class="text-sm text-gray-500">
+            Build weekly schedules by section, subject, and teacher.
+        </p>
+        <a href="{% url 'core:timetable_create' %}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            Add Slot
+        </a>
+    </div>
+
+    <form method="get" class="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap items-end gap-3">
+        <div class="min-w-[180px]">
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Section</label>
+            <select name="section" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm" onchange="this.form.submit()">
+                <option value="">All sections</option>
+                {% for s in sections %}
+                <option value="{{ s.pk }}" {% if section_filter == s.pk|stringformat:"s" %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="min-w-[160px]">
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Day</label>
+            <select name="day" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm" onchange="this.form.submit()">
+                <option value="">All days</option>
+                {% for value, label in days %}
+                <option value="{{ value }}" {% if day_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Day</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Time</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Section</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Subject</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Teacher</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for slot in slots %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ slot.get_day_of_week_display }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">{{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">{{ slot.section }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">{{ slot.subject.name }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">{{ slot.teacher.get_full_name }}</td>
+                        <td class="px-6 py-4">
+                            <div class="flex flex-wrap gap-2">
+                                <a href="{% url 'core:timetable_edit' slot.pk %}" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200">Edit</a>
+                                <form method="post" action="{% url 'core:timetable_delete' slot.pk %}" onsubmit="return confirm('Delete this timetable slot?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100">Delete</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-16 text-center">
+                            <p class="text-sm font-semibold text-gray-900 mb-1">No timetable slots yet</p>
+                            <p class="text-xs text-gray-400 mb-4">Create sections, subjects, and teachers first, then add schedule slots.</p>
+                            <a href="{% url 'core:timetable_create' %}" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-white text-xs font-semibold hover:bg-primary-700">
+                                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add First Slot
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

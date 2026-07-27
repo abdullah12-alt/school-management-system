@@ -66,9 +66,40 @@ def accountant_required(view_func):
 
 def student_or_parent_required(view_func):
     """
-    Ensures user is a Student, Parent, School Admin, or Superuser.
+    Ensures user is a Student, Parent, Teacher, School Admin, or Superuser.
+    Teachers may view attendance/results for students in their sections
+    (enforced further by can_access_student_data).
     """
-    return role_required('student', 'parent', 'school_admin')(view_func)
+    return role_required('student', 'parent', 'teacher', 'school_admin')(view_func)
+
+
+def get_teacher_sections(user):
+    """
+    Sections a teacher can access: class teacher OR timetable assignment.
+    School admins / superusers get all sections in scope.
+    """
+    from django.db.models import Q
+    from .models import Section
+
+    qs = Section.objects.select_related('classroom', 'class_teacher')
+    if user.is_superuser or getattr(user, 'is_school_admin', False):
+        return qs.all()
+    return qs.filter(
+        Q(class_teacher=user) | Q(timetables__teacher=user)
+    ).distinct()
+
+
+def teacher_can_access_section(user, section):
+    """Whether the user may manage/view a given section."""
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser or getattr(user, 'is_school_admin', False):
+        return True
+    if user.primary_role != 'teacher':
+        return False
+    if section.class_teacher_id == user.id:
+        return True
+    return section.timetables.filter(teacher=user).exists()
 
 
 def can_access_student_data(user, student):

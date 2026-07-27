@@ -252,6 +252,7 @@ class PlatformAdminTests(TestCase):
             'name': 'New Horizon School',
             'slug': 'new-horizon',
             'plan': 'basic',
+            'currency': 'PKR',
             'is_active': True,
             'admin_email': 'admin@newhorizon.edu',
             'admin_first_name': 'Horizon',
@@ -265,6 +266,7 @@ class PlatformAdminTests(TestCase):
         admin_user = User.objects.get(email='admin@newhorizon.edu')
         self.assertEqual(admin_user.school, new_school)
         self.assertEqual(admin_user.primary_role, 'school_admin')
+        self.assertEqual(new_school.currency, 'PKR')
 
     def test_school_toggle_status_and_suspended_login_block(self):
         """Deactivating a school prevents users from logging in."""

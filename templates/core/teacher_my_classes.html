@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}My Classes — SchoolHub{% endblock %}
+{% block page_title %}My Classes{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <p class="text-sm text-gray-500">Sections you teach or manage as class teacher.</p>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {% for item in section_data %}
+        <div class="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-shadow">
+            <div class="flex items-start justify-between gap-3 mb-3">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary-50 text-primary-700">
+                    {{ item.section.classroom.name }}
+                </span>
+                {% if item.is_class_teacher %}
+                <span class="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">Class Teacher</span>
+                {% endif %}
+            </div>
+            <h3 class="text-lg font-bold text-gray-900">Section {{ item.section.name }}</h3>
+            <p class="text-xs text-gray-500 mt-1">{{ item.student_count }} active student{{ item.student_count|pluralize }}</p>
+            {% if item.subjects %}
+            <div class="mt-3 flex flex-wrap gap-1">
+                {% for subject in item.subjects %}
+                <span class="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{{ subject.name }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+            <div class="mt-5 pt-4 border-t border-gray-100 flex flex-wrap gap-2">
+                <a href="{% url 'core:attendance_mark' %}?section_id={{ item.section.id }}" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary-50 text-primary-700 hover:bg-primary-100">Attendance</a>
+                <a href="{% url 'core:teacher_students' %}?section={{ item.section.id }}" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200">Students</a>
+                <a href="{% url 'core:exam_list' %}" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200">Exams</a>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-span-full bg-white rounded-xl border border-gray-200 p-12 text-center">
+            <i data-lucide="book-open" class="w-12 h-12 text-gray-300 mx-auto mb-3"></i>
+            <h4 class="text-base font-bold text-gray-900 mb-1">No classes assigned</h4>
+            <p class="text-sm text-gray-400">Ask your school admin to assign you as class teacher or to the timetable.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

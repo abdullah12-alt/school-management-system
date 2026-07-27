@@ -4,7 +4,7 @@ Core models for the School Management System.
 Hierarchy:
     School (tenant) → Department, Role, User, UserRole, ClassRoom, Section,
     Subject, Student, Staff, Timetable, StudentAttendance, Exam, ExamResult,
-    FeeStructure, Invoice.
+    FeeStructure, Invoice, Syllabus, SyllabusUnit.
     All school-owned models inherit from TenantModel for automatic scoping.
 """
 from django.conf import settings
@@ -55,6 +55,86 @@ class DayOfWeekChoices(models.TextChoices):
     SATURDAY = 'saturday', 'Saturday'
     SUNDAY = 'sunday', 'Sunday'
 
+
+class CurrencyChoices(models.TextChoices):
+    USD = 'USD', 'US Dollar ($)'
+    EUR = 'EUR', 'Euro (€)'
+    GBP = 'GBP', 'British Pound (£)'
+    PKR = 'PKR', 'Pakistani Rupee (Rs)'
+    INR = 'INR', 'Indian Rupee (₹)'
+    AED = 'AED', 'UAE Dirham (AED)'
+    SAR = 'SAR', 'Saudi Riyal (SAR)'
+    CAD = 'CAD', 'Canadian Dollar (C$)'
+    AUD = 'AUD', 'Australian Dollar (A$)'
+
+
+class ThemeColorChoices(models.TextChoices):
+    INDIGO = 'indigo', 'Indigo'
+    BLUE = 'blue', 'Blue'
+    TEAL = 'teal', 'Teal'
+    EMERALD = 'emerald', 'Emerald'
+    ROSE = 'rose', 'Rose'
+    AMBER = 'amber', 'Amber'
+    VIOLET = 'violet', 'Violet'
+    SLATE = 'slate', 'Slate'
+
+
+CURRENCY_SYMBOLS = {
+    CurrencyChoices.USD: '$',
+    CurrencyChoices.EUR: '€',
+    CurrencyChoices.GBP: '£',
+    CurrencyChoices.PKR: 'Rs',
+    CurrencyChoices.INR: '₹',
+    CurrencyChoices.AED: 'AED',
+    CurrencyChoices.SAR: 'SAR',
+    CurrencyChoices.CAD: 'C$',
+    CurrencyChoices.AUD: 'A$',
+}
+
+
+# Tailwind-compatible primary palettes for school branding
+THEME_PALETTES = {
+    ThemeColorChoices.INDIGO: {
+        '50': '#eef2ff', '100': '#e0e7ff', '200': '#c7d2fe', '300': '#a5b4fc',
+        '400': '#818cf8', '500': '#6366f1', '600': '#4f46e5', '700': '#4338ca',
+        '800': '#3730a3', '900': '#312e81', '950': '#1e1b4b',
+    },
+    ThemeColorChoices.BLUE: {
+        '50': '#eff6ff', '100': '#dbeafe', '200': '#bfdbfe', '300': '#93c5fd',
+        '400': '#60a5fa', '500': '#3b82f6', '600': '#2563eb', '700': '#1d4ed8',
+        '800': '#1e40af', '900': '#1e3a8a', '950': '#172554',
+    },
+    ThemeColorChoices.TEAL: {
+        '50': '#f0fdfa', '100': '#ccfbf1', '200': '#99f6e4', '300': '#5eead4',
+        '400': '#2dd4bf', '500': '#14b8a6', '600': '#0d9488', '700': '#0f766e',
+        '800': '#115e59', '900': '#134e4a', '950': '#042f2e',
+    },
+    ThemeColorChoices.EMERALD: {
+        '50': '#ecfdf5', '100': '#d1fae5', '200': '#a7f3d0', '300': '#6ee7b7',
+        '400': '#34d399', '500': '#10b981', '600': '#059669', '700': '#047857',
+        '800': '#065f46', '900': '#064e3b', '950': '#022c22',
+    },
+    ThemeColorChoices.ROSE: {
+        '50': '#fff1f2', '100': '#ffe4e6', '200': '#fecdd3', '300': '#fda4af',
+        '400': '#fb7185', '500': '#f43f5e', '600': '#e11d48', '700': '#be123c',
+        '800': '#9f1239', '900': '#881337', '950': '#4c0519',
+    },
+    ThemeColorChoices.AMBER: {
+        '50': '#fffbeb', '100': '#fef3c7', '200': '#fde68a', '300': '#fcd34d',
+        '400': '#fbbf24', '500': '#f59e0b', '600': '#d97706', '700': '#b45309',
+        '800': '#92400e', '900': '#78350f', '950': '#451a03',
+    },
+    ThemeColorChoices.VIOLET: {
+        '50': '#f5f3ff', '100': '#ede9fe', '200': '#ddd6fe', '300': '#c4b5fd',
+        '400': '#a78bfa', '500': '#8b5cf6', '600': '#7c3aed', '700': '#6d28d9',
+        '800': '#5b21b6', '900': '#4c1d95', '950': '#2e1065',
+    },
+    ThemeColorChoices.SLATE: {
+        '50': '#f8fafc', '100': '#f1f5f9', '200': '#e2e8f0', '300': '#cbd5e1',
+        '400': '#94a3b8', '500': '#64748b', '600': '#475569', '700': '#334155',
+        '800': '#1e293b', '900': '#0f172a', '950': '#020617',
+    },
+}
 
 # Roles that School Admins can create
 STAFF_ROLES = [
@@ -205,6 +285,18 @@ class School(models.Model):
         help_text='The active subscription plan for this school. Overrides the legacy plan field.',
     )
     is_active = models.BooleanField(default=True)
+    currency = models.CharField(
+        max_length=3,
+        choices=CurrencyChoices.choices,
+        default=CurrencyChoices.USD,
+        help_text='Currency used for fee invoices at this school.',
+    )
+    theme_color = models.CharField(
+        max_length=20,
+        choices=ThemeColorChoices.choices,
+        default=ThemeColorChoices.INDIGO,
+        help_text='Primary brand color for the school portal UI.',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -219,10 +311,17 @@ class School(models.Model):
         super().save(*args, **kwargs)
 
     @property
+    def currency_symbol(self):
+        return CURRENCY_SYMBOLS.get(self.currency, self.currency)
+
+    @property
+    def theme_palette(self):
+        return THEME_PALETTES.get(self.theme_color, THEME_PALETTES[ThemeColorChoices.INDIGO])
+
+    @property
     def effective_plan(self):
         """Returns the SubscriptionPlan if set, otherwise falls back to legacy PLAN_LIMITS."""
         return self.subscription_plan
-
     @property
     def plan_display_name(self):
         if self.subscription_plan:
@@ -418,7 +517,7 @@ class User(AbstractUser):
 
     def get_extra_roles(self):
         """Return extra Role objects assigned to this user."""
-        return Role.unscoped.filter(userrole__user=self)
+        return Role.unscoped.filter(user_roles__user=self)
 
 
 # ── Role (Custom/Extra Roles) ───────────────────────────────────────────────
@@ -699,7 +798,7 @@ class FeeStructure(TenantModel):
         ordering = ['name']
 
     def __str__(self):
-        return f"{self.name} (${self.amount})"
+        return f"{self.name} ({self.amount})"
 
 
 class Invoice(TenantModel):
@@ -732,3 +831,50 @@ class Invoice(TenantModel):
     @property
     def remaining_balance(self):
         return self.amount_due - self.amount_paid
+
+
+# ── Syllabus / Curriculum Models ─────────────────────────────────────────────
+
+class Syllabus(TenantModel):
+    """Syllabus for a subject taught at a class level."""
+    classroom = models.ForeignKey(
+        ClassRoom,
+        on_delete=models.CASCADE,
+        related_name='syllabi',
+    )
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.CASCADE,
+        related_name='syllabi',
+    )
+    title = models.CharField(max_length=200)
+    academic_year = models.CharField(max_length=20, blank=True)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['classroom__name', 'subject__name', 'title']
+        verbose_name_plural = 'syllabi'
+        unique_together = ['school', 'classroom', 'subject', 'academic_year']
+
+    def __str__(self):
+        year = f" ({self.academic_year})" if self.academic_year else ''
+        return f"{self.title}{year}"
+
+
+class SyllabusUnit(models.Model):
+    """A chapter or unit within a syllabus."""
+    syllabus = models.ForeignKey(
+        Syllabus,
+        on_delete=models.CASCADE,
+        related_name='units',
+    )
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return f"{self.order}. {self.title}"

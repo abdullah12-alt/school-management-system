@@ -11,22 +11,39 @@ from django.http import Http404, HttpResponseForbidden
 from django.core.paginator import Paginator
 from django.db.models import Sum, Q
 
+from .forms import (
+    LoginForm, StaffCreateForm, RoleAssignmentForm, RoleCreateForm,
+    ExamCreateForm, InvoiceCreateForm, SchoolCreateForm, SchoolEditForm,
+    SubscriptionPlanForm, ClassRoomForm, SectionForm, SubjectForm,
+    SyllabusForm, SyllabusUnitForm, StudentCreateForm, StudentEditForm,
+    SchoolPreferencesForm, ProfileUpdateForm, ChangePasswordForm, TimetableForm,
+)
+from .decorators import (
+    school_admin_required, teacher_required, accountant_required,
+    student_or_parent_required, can_access_student_data,
+    get_teacher_sections, teacher_can_access_section,
+)
+from .managers import get_current_school
 from .models import (
     School, User, Role, UserRole, PrimaryRoleChoices, STAFF_ROLES,
     Section, Subject, Student, Staff, ClassRoom, Timetable,
     StudentAttendance, Exam, ExamResult, FeeStructure, Invoice,
     AttendanceStatusChoices, InvoiceStatusChoices, PlatformActivity,
-    ActivityTypeChoices, PlanChoices, SubscriptionPlan
+    ActivityTypeChoices, PlanChoices, SubscriptionPlan,
+    Syllabus, SyllabusUnit, DayOfWeekChoices,
 )
-from .forms import (
-    LoginForm, StaffCreateForm, RoleAssignmentForm, RoleCreateForm,
-    ExamCreateForm, InvoiceCreateForm, SchoolCreateForm, SchoolEditForm,
-    SubscriptionPlanForm
-)
-from .decorators import (
-    school_admin_required, teacher_required, accountant_required,
-    student_or_parent_required, can_access_student_data
-)
+
+def get_request_school(request):
+    """
+    Resolve the active school for school-scoped operations.
+    Prefers impersonated school (platform admin), then user.school,
+    then thread-local current school.
+    """
+    if getattr(request, 'impersonated_school', None):
+        return request.impersonated_school
+    if getattr(request.user, 'school', None):
+        return request.user.school
+    return get_current_school()
 
 
 # ── Auth Views ───────────────────────────────────────────────────────────────
@@ -506,13 +523,84 @@ def dashboard_teacher(request):
     if user.primary_role != 'teacher' and not user.is_superuser:
         return redirect('core:dashboard')
 
-    # Get sections where user is class_teacher OR assigned in timetable
-    managed_sections = Section.objects.filter(
-        Q(class_teacher=user) | Q(timetables__teacher=user)
-    ).distinct().select_related('classroom')
+    managed_sections = get_teacher_sections(user)
+    today = datetime.date.today()
+    today_key = today.strftime('%A').lower()  # monday, tuesday, ...
+    today_slots = Timetable.objects.filter(
+        teacher=user,
+        day_of_week=today_key,
+    ).select_related('section', 'section__classroom', 'subject').order_by('start_time')
 
     return render(request, 'core/dashboard_teacher.html', {
         'sections': managed_sections,
+        'today_slots': today_slots,
+        'today': today,
+    })
+
+
+@teacher_required
+def attendance_mark(request):
+    """Teachers mark daily attendance for a section they can access."""
+    sections = get_teacher_sections(request.user)
+    selected_section_id = request.GET.get('section_id') or (sections.first().id if sections.exists() else None)
+    date_str = request.GET.get('date') or datetime.date.today().isoformat()
+
+    try:
+        selected_date = datetime.date.fromisoformat(date_str)
+    except ValueError:
+        selected_date = datetime.date.today()
+
+    selected_section = None
+    students = []
+    attendance_map = {}
+
+    if selected_section_id:
+        selected_section = get_object_or_404(Section, pk=selected_section_id)
+        if not teacher_can_access_section(request.user, selected_section):
+            raise Http404("Section not found.")
+        students = Student.objects.filter(section=selected_section, user__is_active=True).select_related('user')
+        existing_attendances = StudentAttendance.objects.filter(
+            section=selected_section,
+            date=selected_date
+        )
+        for att in existing_attendances:
+            attendance_map[att.student_id] = att.status
+
+    if request.method == 'POST':
+        if not selected_section:
+            messages.error(request, 'Please select a section.')
+            return redirect('core:attendance_mark')
+
+        marked_count = 0
+        school = get_request_school(request) or request.user.school
+        for student in students:
+            status_val = request.POST.get(f'status_{student.id}')
+            if status_val in dict(AttendanceStatusChoices.choices):
+                StudentAttendance.objects.update_or_create(
+                    student=student,
+                    date=selected_date,
+                    defaults={
+                        'section': selected_section,
+                        'status': status_val,
+                        'marked_by': request.user,
+                        'school': school,
+                    }
+                )
+                marked_count += 1
+
+        messages.success(
+            request,
+            f'Attendance marked successfully for {marked_count} students on {selected_date}.'
+        )
+        return redirect(f"{request.path}?section_id={selected_section.id}&date={selected_date.isoformat()}")
+
+    return render(request, 'core/attendance_mark.html', {
+        'sections': sections,
+        'selected_section': selected_section,
+        'selected_date': selected_date,
+        'students': students,
+        'attendance_map': attendance_map,
+        'status_choices': AttendanceStatusChoices.choices,
     })
 
 
@@ -668,7 +756,7 @@ def staff_roles(request, user_id):
     school = request.user.school
     current_roles = Role.unscoped.filter(
         school=school,
-        userrole__user=staff_member,
+        user_roles__user=staff_member,
     )
 
     if request.method == 'POST':
@@ -724,69 +812,6 @@ def role_create(request):
 
 # ── Attendance Views ─────────────────────────────────────────────────────────
 
-@teacher_required
-def attendance_mark(request):
-    """Teachers mark daily attendance for a section."""
-    sections = Section.objects.all().select_related('classroom')
-    selected_section_id = request.GET.get('section_id') or (sections.first().id if sections.exists() else None)
-    date_str = request.GET.get('date') or datetime.date.today().isoformat()
-
-    try:
-        selected_date = datetime.date.fromisoformat(date_str)
-    except ValueError:
-        selected_date = datetime.date.today()
-
-    selected_section = None
-    students = []
-    attendance_map = {}
-
-    if selected_section_id:
-        selected_section = get_object_or_404(Section, pk=selected_section_id)
-        students = Student.objects.filter(section=selected_section).select_related('user')
-        existing_attendances = StudentAttendance.objects.filter(
-            section=selected_section,
-            date=selected_date
-        )
-        for att in existing_attendances:
-            attendance_map[att.student_id] = att.status
-
-    if request.method == 'POST':
-        if not selected_section:
-            messages.error(request, 'Please select a section.')
-            return redirect('core:attendance_mark')
-
-        marked_count = 0
-        for student in students:
-            status_val = request.POST.get(f'status_{student.id}')
-            if status_val in dict(AttendanceStatusChoices.choices):
-                StudentAttendance.objects.update_or_create(
-                    student=student,
-                    date=selected_date,
-                    defaults={
-                        'section': selected_section,
-                        'status': status_val,
-                        'marked_by': request.user,
-                        'school': request.user.school
-                    }
-                )
-                marked_count += 1
-
-        messages.success(
-            request,
-            f'Attendance marked successfully for {marked_count} students on {selected_date}.'
-        )
-        return redirect(f"{request.path}?section_id={selected_section.id}&date={selected_date.isoformat()}")
-
-    return render(request, 'core/attendance_mark.html', {
-        'sections': sections,
-        'selected_section': selected_section,
-        'selected_date': selected_date,
-        'students': students,
-        'attendance_map': attendance_map,
-        'status_choices': AttendanceStatusChoices.choices,
-    })
-
-
 @student_or_parent_required
 def attendance_history(request, student_id=None):
     """View attendance records for a student or child with pagination."""
@@ -825,19 +850,28 @@ def attendance_history(request, student_id=None):
 
 @login_required
 def exam_list(request):
-    """List exams for the school."""
+    """List exams for the school (teachers see exams in their sections)."""
     exams = Exam.objects.all().select_related('section', 'section__classroom')
+    if request.user.primary_role == 'teacher' and not request.user.is_superuser:
+        section_ids = get_teacher_sections(request.user).values_list('id', flat=True)
+        exams = exams.filter(section_id__in=section_ids)
     return render(request, 'core/exam_list.html', {'exams': exams})
 
 
 @teacher_required
 def exam_create(request):
-    """Create a new exam."""
-    form = ExamCreateForm(request.POST or None, school=request.user.school)
+    """Create a new exam (teachers limited to their sections)."""
+    school = get_request_school(request) or request.user.school
+    form = ExamCreateForm(request.POST or None, school=school)
+    if request.user.primary_role == 'teacher' and not request.user.is_superuser:
+        form.fields['section'].queryset = get_teacher_sections(request.user)
 
     if request.method == 'POST' and form.is_valid():
         exam = form.save(commit=False)
-        exam.school = request.user.school
+        exam.school = school
+        if not teacher_can_access_section(request.user, exam.section):
+            messages.error(request, 'You cannot create an exam for that section.')
+            return redirect('core:exam_list')
         exam.save()
         messages.success(request, f'Exam "{exam.name}" created successfully.')
         return redirect('core:exam_list')
@@ -991,4 +1025,788 @@ def my_invoices(request, student_id=None):
         'student': student,
         'invoices': page_obj,
         'page_obj': page_obj,
+    })
+
+
+# ── Academic Structure: Classes ──────────────────────────────────────────────
+
+@school_admin_required
+def classroom_list(request):
+    """List all classes/grades in the current school."""
+    classrooms = ClassRoom.objects.prefetch_related('sections').all()
+    return render(request, 'core/classroom_list.html', {
+        'classrooms': classrooms,
+    })
+
+
+@school_admin_required
+def classroom_create(request):
+    """Create a new class/grade."""
+    form = ClassRoomForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        classroom = form.save(commit=False)
+        classroom.school = get_request_school(request)
+        classroom.save()
+        messages.success(request, f'Class "{classroom.name}" has been created.')
+        return redirect('core:classroom_list')
+    return render(request, 'core/classroom_form.html', {
+        'form': form,
+        'is_edit': False,
+    })
+
+
+@school_admin_required
+def classroom_edit(request, classroom_id):
+    """Edit an existing class/grade."""
+    classroom = get_object_or_404(ClassRoom, pk=classroom_id)
+    form = ClassRoomForm(request.POST or None, instance=classroom)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, f'Class "{classroom.name}" has been updated.')
+        return redirect('core:classroom_list')
+    return render(request, 'core/classroom_form.html', {
+        'form': form,
+        'classroom': classroom,
+        'is_edit': True,
+    })
+
+
+@school_admin_required
+def classroom_delete(request, classroom_id):
+    """Delete a class if it has no sections."""
+    classroom = get_object_or_404(ClassRoom, pk=classroom_id)
+    if request.method == 'POST':
+        if classroom.sections.exists():
+            messages.error(
+                request,
+                f'Cannot delete "{classroom.name}" because it has sections. '
+                'Remove sections first.'
+            )
+        else:
+            name = classroom.name
+            classroom.delete()
+            messages.success(request, f'Class "{name}" has been deleted.')
+        return redirect('core:classroom_list')
+    return redirect('core:classroom_list')
+
+
+# ── Academic Structure: Sections ─────────────────────────────────────────────
+
+@school_admin_required
+def section_list(request):
+    """List sections, optionally filtered by classroom."""
+    classroom_id = request.GET.get('classroom', '')
+    sections = Section.objects.select_related('classroom', 'class_teacher').all()
+    if classroom_id.isdigit():
+        sections = sections.filter(classroom_id=classroom_id)
+    classrooms = ClassRoom.objects.all()
+    return render(request, 'core/section_list.html', {
+        'sections': sections,
+        'classrooms': classrooms,
+        'classroom_filter': classroom_id,
+    })
+
+
+@school_admin_required
+def section_create(request):
+    """Create a new section."""
+    school = get_request_school(request)
+    initial = {}
+    classroom_id = request.GET.get('classroom')
+    if classroom_id and classroom_id.isdigit():
+        initial['classroom'] = classroom_id
+    form = SectionForm(request.POST or None, school=school, initial=initial)
+    if request.method == 'POST' and form.is_valid():
+        section = form.save(commit=False)
+        section.school = school
+        section.save()
+        messages.success(request, f'Section "{section}" has been created.')
+        return redirect('core:section_list')
+    return render(request, 'core/section_form.html', {
+        'form': form,
+        'is_edit': False,
+    })
+
+
+@school_admin_required
+def section_edit(request, section_id):
+    """Edit an existing section."""
+    school = get_request_school(request)
+    section = get_object_or_404(Section, pk=section_id)
+    form = SectionForm(request.POST or None, school=school, instance=section)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, f'Section "{section}" has been updated.')
+        return redirect('core:section_list')
+    return render(request, 'core/section_form.html', {
+        'form': form,
+        'section': section,
+        'is_edit': True,
+    })
+
+
+@school_admin_required
+def section_delete(request, section_id):
+    """Delete a section if it has no students."""
+    section = get_object_or_404(Section, pk=section_id)
+    if request.method == 'POST':
+        if section.students.exists():
+            messages.error(
+                request,
+                f'Cannot delete "{section}" because it has students. '
+                'Reassign students first.'
+            )
+        else:
+            name = str(section)
+            section.delete()
+            messages.success(request, f'Section "{name}" has been deleted.')
+        return redirect('core:section_list')
+    return redirect('core:section_list')
+
+
+# ── Academic Structure: Subjects ─────────────────────────────────────────────
+
+@school_admin_required
+def subject_list(request):
+    """List all subjects in the current school."""
+    subjects = Subject.objects.all()
+    return render(request, 'core/subject_list.html', {'subjects': subjects})
+
+
+@school_admin_required
+def subject_create(request):
+    """Create a new subject."""
+    form = SubjectForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        subject = form.save(commit=False)
+        subject.school = get_request_school(request)
+        subject.save()
+        messages.success(request, f'Subject "{subject.name}" has been created.')
+        return redirect('core:subject_list')
+    return render(request, 'core/subject_form.html', {
+        'form': form,
+        'is_edit': False,
+    })
+
+
+@school_admin_required
+def subject_edit(request, subject_id):
+    """Edit an existing subject."""
+    subject = get_object_or_404(Subject, pk=subject_id)
+    form = SubjectForm(request.POST or None, instance=subject)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, f'Subject "{subject.name}" has been updated.')
+        return redirect('core:subject_list')
+    return render(request, 'core/subject_form.html', {
+        'form': form,
+        'subject': subject,
+        'is_edit': True,
+    })
+
+
+@school_admin_required
+def subject_delete(request, subject_id):
+    """Delete a subject if unused by timetables/syllabi."""
+    subject = get_object_or_404(Subject, pk=subject_id)
+    if request.method == 'POST':
+        if subject.timetables.exists() or subject.syllabi.exists():
+            messages.error(
+                request,
+                f'Cannot delete "{subject.name}" because it is used in '
+                'timetables or syllabi.'
+            )
+        else:
+            name = subject.name
+            subject.delete()
+            messages.success(request, f'Subject "{name}" has been deleted.')
+        return redirect('core:subject_list')
+    return redirect('core:subject_list')
+
+
+# ── Timetable Management ─────────────────────────────────────────────────────
+
+@school_admin_required
+def timetable_list(request):
+    """List timetable slots with optional section/day filters."""
+    section_id = request.GET.get('section', '')
+    day = request.GET.get('day', '')
+    slots = Timetable.objects.select_related(
+        'section', 'section__classroom', 'subject', 'teacher'
+    ).all()
+    if section_id.isdigit():
+        slots = slots.filter(section_id=section_id)
+    if day in dict(DayOfWeekChoices.choices):
+        slots = slots.filter(day_of_week=day)
+
+    return render(request, 'core/timetable_list.html', {
+        'slots': slots,
+        'sections': Section.objects.select_related('classroom').all(),
+        'days': DayOfWeekChoices.choices,
+        'section_filter': section_id,
+        'day_filter': day,
+    })
+
+
+@school_admin_required
+def timetable_create(request):
+    """Create a new timetable slot."""
+    school = get_request_school(request)
+    initial = {}
+    section_id = request.GET.get('section')
+    if section_id and section_id.isdigit():
+        initial['section'] = section_id
+    form = TimetableForm(request.POST or None, school=school, initial=initial)
+    if request.method == 'POST' and form.is_valid():
+        slot = form.save(commit=False)
+        slot.school = school
+        slot.save()
+        messages.success(request, f'Timetable slot created: {slot}.')
+        return redirect('core:timetable_list')
+    return render(request, 'core/timetable_form.html', {
+        'form': form,
+        'is_edit': False,
+    })
+
+
+@school_admin_required
+def timetable_edit(request, slot_id):
+    """Edit an existing timetable slot."""
+    school = get_request_school(request)
+    slot = get_object_or_404(Timetable, pk=slot_id)
+    form = TimetableForm(request.POST or None, school=school, instance=slot)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, f'Timetable slot updated: {slot}.')
+        return redirect('core:timetable_list')
+    return render(request, 'core/timetable_form.html', {
+        'form': form,
+        'slot': slot,
+        'is_edit': True,
+    })
+
+
+@school_admin_required
+def timetable_delete(request, slot_id):
+    """Delete a timetable slot."""
+    slot = get_object_or_404(Timetable, pk=slot_id)
+    if request.method == 'POST':
+        label = str(slot)
+        slot.delete()
+        messages.success(request, f'Timetable slot deleted: {label}.')
+        return redirect('core:timetable_list')
+    return redirect('core:timetable_list')
+
+
+# ── Syllabus Management ──────────────────────────────────────────────────────
+
+@school_admin_required
+def syllabus_list(request):
+    """List syllabi, optionally filtered by class or subject."""
+    classroom_id = request.GET.get('classroom', '')
+    subject_id = request.GET.get('subject', '')
+    syllabi = Syllabus.objects.select_related('classroom', 'subject').prefetch_related('units')
+    if classroom_id.isdigit():
+        syllabi = syllabi.filter(classroom_id=classroom_id)
+    if subject_id.isdigit():
+        syllabi = syllabi.filter(subject_id=subject_id)
+    return render(request, 'core/syllabus_list.html', {
+        'syllabi': syllabi,
+        'classrooms': ClassRoom.objects.all(),
+        'subjects': Subject.objects.all(),
+        'classroom_filter': classroom_id,
+        'subject_filter': subject_id,
+    })
+
+
+@school_admin_required
+def syllabus_create(request):
+    """Create a new syllabus."""
+    school = get_request_school(request)
+    form = SyllabusForm(request.POST or None, school=school)
+    if request.method == 'POST' and form.is_valid():
+        syllabus = form.save(commit=False)
+        syllabus.school = school
+        syllabus.save()
+        messages.success(request, f'Syllabus "{syllabus.title}" has been created.')
+        return redirect('core:syllabus_detail', syllabus_id=syllabus.pk)
+    return render(request, 'core/syllabus_form.html', {
+        'form': form,
+        'is_edit': False,
+    })
+
+
+@school_admin_required
+def syllabus_edit(request, syllabus_id):
+    """Edit an existing syllabus."""
+    school = get_request_school(request)
+    syllabus = get_object_or_404(Syllabus, pk=syllabus_id)
+    form = SyllabusForm(request.POST or None, school=school, instance=syllabus)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, f'Syllabus "{syllabus.title}" has been updated.')
+        return redirect('core:syllabus_detail', syllabus_id=syllabus.pk)
+    return render(request, 'core/syllabus_form.html', {
+        'form': form,
+        'syllabus': syllabus,
+        'is_edit': True,
+    })
+
+
+@school_admin_required
+def syllabus_detail(request, syllabus_id):
+    """View syllabus units and add new units."""
+    syllabus = get_object_or_404(
+        Syllabus.objects.select_related('classroom', 'subject'),
+        pk=syllabus_id,
+    )
+    unit_form = SyllabusUnitForm(request.POST or None)
+    if request.method == 'POST' and unit_form.is_valid():
+        unit = unit_form.save(commit=False)
+        unit.syllabus = syllabus
+        if not unit.order:
+            last = syllabus.units.order_by('-order').first()
+            unit.order = (last.order + 1) if last else 1
+        unit.save()
+        messages.success(request, f'Unit "{unit.title}" added.')
+        return redirect('core:syllabus_detail', syllabus_id=syllabus.pk)
+    return render(request, 'core/syllabus_detail.html', {
+        'syllabus': syllabus,
+        'units': syllabus.units.all(),
+        'unit_form': unit_form,
+    })
+
+
+@school_admin_required
+def syllabus_delete(request, syllabus_id):
+    """Delete a syllabus and its units."""
+    syllabus = get_object_or_404(Syllabus, pk=syllabus_id)
+    if request.method == 'POST':
+        title = syllabus.title
+        syllabus.delete()
+        messages.success(request, f'Syllabus "{title}" has been deleted.')
+        return redirect('core:syllabus_list')
+    return redirect('core:syllabus_list')
+
+
+@school_admin_required
+def syllabus_unit_delete(request, unit_id):
+    """Delete a syllabus unit."""
+    school = get_request_school(request)
+    unit = get_object_or_404(
+        SyllabusUnit,
+        pk=unit_id,
+        syllabus__school=school,
+    )
+    syllabus_id = unit.syllabus_id
+    if request.method == 'POST':
+        title = unit.title
+        unit.delete()
+        messages.success(request, f'Unit "{title}" has been removed.')
+    return redirect('core:syllabus_detail', syllabus_id=syllabus_id)
+
+
+# ── Student Management ───────────────────────────────────────────────────────
+
+@school_admin_required
+def student_list(request):
+    """List students with search and class/section filters."""
+    q = request.GET.get('q', '').strip()
+    classroom_id = request.GET.get('classroom', '')
+    section_id = request.GET.get('section', '')
+    status = request.GET.get('status', 'active')
+
+    students = Student.objects.select_related(
+        'user', 'section', 'section__classroom', 'parent'
+    ).all()
+
+    if status == 'active':
+        students = students.filter(user__is_active=True)
+    elif status == 'inactive':
+        students = students.filter(user__is_active=False)
+
+    if q:
+        students = students.filter(
+            Q(user__first_name__icontains=q)
+            | Q(user__last_name__icontains=q)
+            | Q(user__email__icontains=q)
+            | Q(admission_number__icontains=q)
+        )
+    if section_id.isdigit():
+        students = students.filter(section_id=section_id)
+    elif classroom_id.isdigit():
+        students = students.filter(section__classroom_id=classroom_id)
+
+    paginator = Paginator(students, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    sections = Section.objects.select_related('classroom').all()
+    if classroom_id.isdigit():
+        sections = sections.filter(classroom_id=classroom_id)
+
+    return render(request, 'core/student_list.html', {
+        'students': page_obj,
+        'page_obj': page_obj,
+        'classrooms': ClassRoom.objects.all(),
+        'sections': sections,
+        'q': q,
+        'classroom_filter': classroom_id,
+        'section_filter': section_id,
+        'status_filter': status,
+    })
+
+
+@school_admin_required
+def student_create(request):
+    """Create a new student account and profile."""
+    school = get_request_school(request)
+    if school and school.is_student_limit_reached:
+        limit_label = school.student_limit if school.student_limit is not None else '∞'
+        messages.error(
+            request,
+            f'Student limit reached for {school.name} '
+            f'({school.student_count}/{limit_label}). '
+            'Please upgrade your plan to add more students.'
+        )
+        return redirect('core:student_list')
+
+    form = StudentCreateForm(request.POST or None, school=school)
+    if request.method == 'POST' and form.is_valid():
+        student = form.save(school=school)
+        messages.success(
+            request,
+            f'{student.user.get_full_name()} has been enrolled '
+            f'({student.admission_number}).'
+        )
+        return redirect('core:student_detail', student_id=student.pk)
+    return render(request, 'core/student_form.html', {
+        'form': form,
+        'is_edit': False,
+    })
+
+
+@school_admin_required
+def student_detail(request, student_id):
+    """Student profile with fees summary and quick links."""
+    student = get_object_or_404(
+        Student.objects.select_related('user', 'section', 'section__classroom', 'parent'),
+        pk=student_id,
+    )
+    invoices = Invoice.objects.filter(student=student).select_related('fee_structure')
+    totals = invoices.aggregate(
+        due=Sum('amount_due'),
+        paid=Sum('amount_paid'),
+    )
+    amount_due = totals['due'] or Decimal('0.00')
+    amount_paid = totals['paid'] or Decimal('0.00')
+    return render(request, 'core/student_detail.html', {
+        'student': student,
+        'invoices': invoices[:10],
+        'invoice_count': invoices.count(),
+        'amount_due': amount_due,
+        'amount_paid': amount_paid,
+        'balance': amount_due - amount_paid,
+        'unpaid_count': invoices.filter(status__in=['unpaid', 'partial']).count(),
+    })
+
+
+@school_admin_required
+def student_edit(request, student_id):
+    """Edit student profile and account details."""
+    school = get_request_school(request)
+    student = get_object_or_404(Student, pk=student_id)
+    form = StudentEditForm(
+        request.POST or None,
+        school=school,
+        student=student,
+    )
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, f'{student.user.get_full_name()} has been updated.')
+        return redirect('core:student_detail', student_id=student.pk)
+    return render(request, 'core/student_form.html', {
+        'form': form,
+        'student': student,
+        'is_edit': True,
+    })
+
+
+@school_admin_required
+def student_toggle_active(request, student_id):
+    """Activate or deactivate a student account."""
+    student = get_object_or_404(Student, pk=student_id)
+    if request.method == 'POST':
+        user = student.user
+        user.is_active = not user.is_active
+        user.save(update_fields=['is_active'])
+        status = 'activated' if user.is_active else 'deactivated'
+        messages.success(request, f'{user.get_full_name()} has been {status}.')
+    return redirect('core:student_detail', student_id=student.pk)
+
+
+@school_admin_required
+def student_delete(request, student_id):
+    """
+    Soft-delete preferred: deactivate the student account.
+    Hard-delete only when confirmed via POST with confirm=delete.
+    """
+    student = get_object_or_404(Student, pk=student_id)
+    if request.method == 'POST':
+        name = student.user.get_full_name()
+        if request.POST.get('confirm') == 'delete':
+            user = student.user
+            student.delete()
+            user.delete()
+            messages.success(request, f'{name} and their account have been permanently deleted.')
+            return redirect('core:student_list')
+        # Default: deactivate
+        student.user.is_active = False
+        student.user.save(update_fields=['is_active'])
+        messages.success(request, f'{name} has been deactivated.')
+        return redirect('core:student_list')
+    return redirect('core:student_detail', student_id=student.pk)
+
+
+# ── School Preferences ───────────────────────────────────────────────────────
+
+@school_admin_required
+def school_preferences(request):
+    """School Admin: update theme color and fee currency for their school."""
+    school = get_request_school(request)
+    if not school:
+        messages.error(request, 'No school context available.')
+        return redirect('core:dashboard')
+
+    form = SchoolPreferencesForm(request.POST or None, instance=school)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(
+            request,
+            'Preferences saved. Theme and currency are now active for your school.'
+        )
+        return redirect('core:school_preferences')
+
+    return render(request, 'core/school_preferences.html', {
+        'form': form,
+        'school': school,
+    })
+
+
+# ── Teacher Portal ───────────────────────────────────────────────────────────
+
+@teacher_required
+def teacher_my_classes(request):
+    """List sections assigned to the teacher."""
+    sections = get_teacher_sections(request.user)
+    section_data = []
+    for section in sections:
+        section_data.append({
+            'section': section,
+            'student_count': section.students.filter(user__is_active=True).count(),
+            'is_class_teacher': section.class_teacher_id == request.user.id,
+            'subjects': Subject.objects.filter(
+                timetables__section=section,
+                timetables__teacher=request.user,
+            ).distinct() if request.user.primary_role == 'teacher' else Subject.objects.filter(
+                timetables__section=section,
+            ).distinct(),
+        })
+    return render(request, 'core/teacher_my_classes.html', {
+        'section_data': section_data,
+    })
+
+
+@teacher_required
+def teacher_timetable(request):
+    """Weekly timetable for the logged-in teacher."""
+    user = request.user
+    if user.is_superuser or user.is_school_admin:
+        slots = Timetable.objects.filter(
+            section__in=get_teacher_sections(user)
+        ).select_related('section', 'section__classroom', 'subject', 'teacher')
+    else:
+        slots = Timetable.objects.filter(teacher=user).select_related(
+            'section', 'section__classroom', 'subject', 'teacher'
+        )
+
+    days = list(DayOfWeekChoices)
+    timetable_by_day = {day.value: [] for day in days}
+    for slot in slots.order_by('day_of_week', 'start_time'):
+        timetable_by_day.setdefault(slot.day_of_week, []).append(slot)
+
+    day_rows = [(day, timetable_by_day.get(day.value, [])) for day in days]
+
+    return render(request, 'core/teacher_timetable.html', {
+        'day_rows': day_rows,
+    })
+
+
+@teacher_required
+def teacher_attendance_history(request):
+    """Attendance history for teacher-accessible sections."""
+    sections = get_teacher_sections(request.user)
+    section_id = request.GET.get('section', '')
+    date_from = request.GET.get('from', '')
+    date_to = request.GET.get('to', '')
+
+    attendances = StudentAttendance.objects.filter(
+        section__in=sections,
+    ).select_related('student', 'student__user', 'section', 'section__classroom', 'marked_by')
+
+    selected_section = None
+    if section_id.isdigit():
+        selected_section = sections.filter(pk=section_id).first()
+        if selected_section:
+            attendances = attendances.filter(section=selected_section)
+
+    if date_from:
+        try:
+            attendances = attendances.filter(date__gte=datetime.date.fromisoformat(date_from))
+        except ValueError:
+            date_from = ''
+    if date_to:
+        try:
+            attendances = attendances.filter(date__lte=datetime.date.fromisoformat(date_to))
+        except ValueError:
+            date_to = ''
+
+    paginator = Paginator(attendances.order_by('-date', 'student__admission_number'), 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'core/teacher_attendance_history.html', {
+        'sections': sections,
+        'selected_section': selected_section,
+        'section_filter': section_id,
+        'date_from': date_from,
+        'date_to': date_to,
+        'attendances': page_obj,
+        'page_obj': page_obj,
+    })
+
+
+@teacher_required
+def teacher_students(request):
+    """Students in the teacher's assigned sections."""
+    sections = get_teacher_sections(request.user)
+    section_id = request.GET.get('section', '')
+    q = request.GET.get('q', '').strip()
+
+    students = Student.objects.filter(
+        section__in=sections,
+        user__is_active=True,
+    ).select_related('user', 'section', 'section__classroom', 'parent')
+
+    if section_id.isdigit():
+        students = students.filter(section_id=section_id)
+    if q:
+        students = students.filter(
+            Q(user__first_name__icontains=q)
+            | Q(user__last_name__icontains=q)
+            | Q(admission_number__icontains=q)
+            | Q(user__email__icontains=q)
+        )
+
+    paginator = Paginator(students.order_by('admission_number'), 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'core/teacher_students.html', {
+        'students': page_obj,
+        'page_obj': page_obj,
+        'sections': sections,
+        'section_filter': section_id,
+        'q': q,
+    })
+
+
+@teacher_required
+def teacher_student_detail(request, student_id):
+    """Read-only student overview for teachers (no fee management)."""
+    student = get_object_or_404(
+        Student.objects.select_related('user', 'section', 'section__classroom', 'parent'),
+        pk=student_id,
+    )
+    if not can_access_student_data(request.user, student):
+        raise Http404("Student record not found.")
+
+    recent_attendance = StudentAttendance.objects.filter(student=student)[:10]
+    recent_results = ExamResult.objects.filter(student=student).select_related('exam', 'subject')[:10]
+
+    return render(request, 'core/teacher_student_detail.html', {
+        'student': student,
+        'recent_attendance': recent_attendance,
+        'recent_results': recent_results,
+    })
+
+
+@teacher_required
+def teacher_syllabus_list(request):
+    """Syllabi for classes the teacher teaches."""
+    sections = get_teacher_sections(request.user)
+    classroom_ids = sections.values_list('classroom_id', flat=True).distinct()
+    syllabi = Syllabus.objects.filter(
+        classroom_id__in=classroom_ids,
+    ).select_related('classroom', 'subject').prefetch_related('units')
+
+    # Prefer syllabi matching subjects the teacher teaches when they are a teacher
+    if request.user.primary_role == 'teacher' and not request.user.is_superuser:
+        subject_ids = Timetable.objects.filter(
+            teacher=request.user,
+        ).values_list('subject_id', flat=True).distinct()
+        if subject_ids:
+            syllabi = syllabi.filter(
+                Q(subject_id__in=subject_ids) | Q(classroom_id__in=classroom_ids)
+            )
+
+    return render(request, 'core/teacher_syllabus_list.html', {
+        'syllabi': syllabi.distinct(),
+    })
+
+
+@teacher_required
+def teacher_syllabus_detail(request, syllabus_id):
+    """View syllabus units for a class the teacher can access."""
+    syllabus = get_object_or_404(
+        Syllabus.objects.select_related('classroom', 'subject').prefetch_related('units'),
+        pk=syllabus_id,
+    )
+    sections = get_teacher_sections(request.user)
+    if not sections.filter(classroom=syllabus.classroom).exists():
+        if not (request.user.is_superuser or request.user.is_school_admin):
+            raise Http404("Syllabus not found.")
+
+    return render(request, 'core/teacher_syllabus_detail.html', {
+        'syllabus': syllabus,
+        'units': syllabus.units.all(),
+    })
+
+
+@login_required
+def profile_view(request):
+    """Update profile details and change password."""
+    profile_form = ProfileUpdateForm(
+        request.POST if request.POST.get('form_type') == 'profile' else None,
+        instance=request.user,
+    )
+    password_form = ChangePasswordForm(
+        request.user,
+        request.POST if request.POST.get('form_type') == 'password' else None,
+    )
+
+    if request.method == 'POST':
+        form_type = request.POST.get('form_type')
+        if form_type == 'profile' and profile_form.is_valid():
+            profile_form.save()
+            messages.success(request, 'Profile updated successfully.')
+            return redirect('core:profile')
+        if form_type == 'password' and password_form.is_valid():
+            password_form.save()
+            # Keep user logged in after password change
+            from django.contrib.auth import update_session_auth_hash
+            update_session_auth_hash(request, request.user)
+            messages.success(request, 'Password changed successfully.')
+            return redirect('core:profile')
+
+    return render(request, 'core/profile.html', {
+        'profile_form': profile_form,
+        'password_form': password_form,
     })

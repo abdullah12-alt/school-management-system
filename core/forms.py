@@ -6,8 +6,9 @@ from django.contrib.auth import authenticate
 
 from .models import (
     School, User, Role, UserRole, PrimaryRoleChoices, STAFF_ROLES,
-    Section, Subject, Exam, Student, FeeStructure, Invoice,
-    AttendanceStatusChoices, PlanChoices, SubscriptionPlan
+    ClassRoom, Section, Subject, Exam, Student, FeeStructure, Invoice,
+    AttendanceStatusChoices, PlanChoices, SubscriptionPlan,
+    Syllabus, SyllabusUnit, Timetable,
 )
 
 
@@ -78,7 +79,7 @@ class SchoolCreateForm(forms.ModelForm):
 
     class Meta:
         model = School
-        fields = ['name', 'slug', 'plan', 'is_active']
+        fields = ['name', 'slug', 'plan', 'currency', 'is_active']
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': INPUT_CSS,
@@ -93,6 +94,10 @@ class SchoolCreateForm(forms.ModelForm):
             'plan': forms.Select(attrs={
                 'class': SELECT_CSS,
                 'id': 'id_plan',
+            }),
+            'currency': forms.Select(attrs={
+                'class': SELECT_CSS,
+                'id': 'id_currency',
             }),
             'is_active': forms.CheckboxInput(attrs={
                 'class': CHECKBOX_CSS,
@@ -124,7 +129,7 @@ class SchoolEditForm(forms.ModelForm):
     """
     class Meta:
         model = School
-        fields = ['name', 'slug', 'subscription_plan', 'plan', 'is_active']
+        fields = ['name', 'slug', 'subscription_plan', 'plan', 'currency', 'is_active']
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': INPUT_CSS,
@@ -141,6 +146,10 @@ class SchoolEditForm(forms.ModelForm):
             'plan': forms.Select(attrs={
                 'class': SELECT_CSS,
                 'id': 'id_plan',
+            }),
+            'currency': forms.Select(attrs={
+                'class': SELECT_CSS,
+                'id': 'id_currency',
             }),
             'is_active': forms.CheckboxInput(attrs={
                 'class': CHECKBOX_CSS,
@@ -463,3 +472,529 @@ class InvoiceCreateForm(forms.ModelForm):
         if school:
             self.fields['student'].queryset = Student.objects.all()
             self.fields['fee_structure'].queryset = FeeStructure.objects.all()
+
+
+# ── Academic Structure Forms ─────────────────────────────────────────────────
+
+class ClassRoomForm(forms.ModelForm):
+    """Create or edit a class/grade level."""
+
+    class Meta:
+        model = ClassRoom
+        fields = ['name', 'code']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': 'e.g., Grade 10',
+                'id': 'id_name',
+            }),
+            'code': forms.TextInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': 'e.g., G10',
+                'id': 'id_code',
+            }),
+        }
+
+
+class SectionForm(forms.ModelForm):
+    """Create or edit a section under a classroom."""
+
+    class Meta:
+        model = Section
+        fields = ['classroom', 'name', 'class_teacher']
+        widgets = {
+            'classroom': forms.Select(attrs={'class': SELECT_CSS, 'id': 'id_classroom'}),
+            'name': forms.TextInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': 'e.g., A',
+                'id': 'id_name',
+            }),
+            'class_teacher': forms.Select(attrs={'class': SELECT_CSS, 'id': 'id_class_teacher'}),
+        }
+
+    def __init__(self, *args, school=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['class_teacher'].required = False
+        self.fields['class_teacher'].empty_label = '— No class teacher —'
+        if school:
+            self.fields['classroom'].queryset = ClassRoom.objects.all()
+            self.fields['class_teacher'].queryset = User.objects.filter(
+                school=school,
+                primary_role=PrimaryRoleChoices.TEACHER,
+                is_active=True,
+            )
+
+
+class SubjectForm(forms.ModelForm):
+    """Create or edit a subject."""
+
+    class Meta:
+        model = Subject
+        fields = ['name', 'code']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': 'e.g., Mathematics',
+                'id': 'id_name',
+            }),
+            'code': forms.TextInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': 'e.g., MATH101',
+                'id': 'id_code',
+            }),
+        }
+
+
+class TimetableForm(forms.ModelForm):
+    """Create or edit a timetable slot for a section."""
+
+    class Meta:
+        model = Timetable
+        fields = ['section', 'subject', 'teacher', 'day_of_week', 'start_time', 'end_time']
+        widgets = {
+            'section': forms.Select(attrs={'class': SELECT_CSS, 'id': 'id_section'}),
+            'subject': forms.Select(attrs={'class': SELECT_CSS, 'id': 'id_subject'}),
+            'teacher': forms.Select(attrs={'class': SELECT_CSS, 'id': 'id_teacher'}),
+            'day_of_week': forms.Select(attrs={'class': SELECT_CSS, 'id': 'id_day_of_week'}),
+            'start_time': forms.TimeInput(attrs={
+                'class': INPUT_CSS,
+                'type': 'time',
+                'id': 'id_start_time',
+            }),
+            'end_time': forms.TimeInput(attrs={
+                'class': INPUT_CSS,
+                'type': 'time',
+                'id': 'id_end_time',
+            }),
+        }
+
+    def __init__(self, *args, school=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if school:
+            self.fields['section'].queryset = Section.objects.select_related('classroom').all()
+            self.fields['subject'].queryset = Subject.objects.all()
+            self.fields['teacher'].queryset = User.objects.filter(
+                school=school,
+                primary_role=PrimaryRoleChoices.TEACHER,
+                is_active=True,
+            )
+
+    def clean(self):
+        cleaned = super().clean()
+        start = cleaned.get('start_time')
+        end = cleaned.get('end_time')
+        if start and end and end <= start:
+            self.add_error('end_time', 'End time must be after start time.')
+
+        section = cleaned.get('section')
+        teacher = cleaned.get('teacher')
+        day = cleaned.get('day_of_week')
+        if section and teacher and day and start and end:
+            # Teacher overlap on same day
+            teacher_conflicts = Timetable.objects.filter(
+                teacher=teacher,
+                day_of_week=day,
+            ).exclude(pk=self.instance.pk if self.instance.pk else None)
+            for slot in teacher_conflicts:
+                if start < slot.end_time and end > slot.start_time:
+                    self.add_error(
+                        'teacher',
+                        f'Teacher already has a class at {slot.start_time.strftime("%H:%M")}-'
+                        f'{slot.end_time.strftime("%H:%M")} ({slot.section}).'
+                    )
+                    break
+
+            # Section overlap on same day
+            section_conflicts = Timetable.objects.filter(
+                section=section,
+                day_of_week=day,
+            ).exclude(pk=self.instance.pk if self.instance.pk else None)
+            for slot in section_conflicts:
+                if start < slot.end_time and end > slot.start_time:
+                    self.add_error(
+                        'section',
+                        f'This section already has {slot.subject.name} at '
+                        f'{slot.start_time.strftime("%H:%M")}-{slot.end_time.strftime("%H:%M")}.'
+                    )
+                    break
+        return cleaned
+
+
+class SyllabusForm(forms.ModelForm):
+    """Create or edit a syllabus for a class + subject."""
+
+    class Meta:
+        model = Syllabus
+        fields = ['classroom', 'subject', 'title', 'academic_year', 'description']
+        widgets = {
+            'classroom': forms.Select(attrs={'class': SELECT_CSS, 'id': 'id_classroom'}),
+            'subject': forms.Select(attrs={'class': SELECT_CSS, 'id': 'id_subject'}),
+            'title': forms.TextInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': 'e.g., Grade 10 Mathematics Syllabus',
+                'id': 'id_title',
+            }),
+            'academic_year': forms.TextInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': 'e.g., 2025-26',
+                'id': 'id_academic_year',
+            }),
+            'description': forms.Textarea(attrs={
+                'class': INPUT_CSS + ' resize-none',
+                'rows': 3,
+                'placeholder': 'Optional overview...',
+                'id': 'id_description',
+            }),
+        }
+
+    def __init__(self, *args, school=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['academic_year'].required = False
+        self.fields['description'].required = False
+        if school:
+            self.fields['classroom'].queryset = ClassRoom.objects.all()
+            self.fields['subject'].queryset = Subject.objects.all()
+
+
+class SyllabusUnitForm(forms.ModelForm):
+    """Add a chapter/unit to a syllabus."""
+
+    class Meta:
+        model = SyllabusUnit
+        fields = ['title', 'description', 'order']
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': 'e.g., Algebra — Linear Equations',
+                'id': 'id_unit_title',
+            }),
+            'description': forms.Textarea(attrs={
+                'class': INPUT_CSS + ' resize-none',
+                'rows': 2,
+                'placeholder': 'Topics covered in this unit...',
+                'id': 'id_unit_description',
+            }),
+            'order': forms.NumberInput(attrs={
+                'class': INPUT_CSS,
+                'min': '0',
+                'id': 'id_unit_order',
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['description'].required = False
+        self.fields['order'].required = False
+        self.fields['order'].initial = 0
+
+
+# ── Student Management Forms ─────────────────────────────────────────────────
+
+class StudentCreateForm(forms.Form):
+    """Create a student user account + student profile."""
+    first_name = forms.CharField(
+        widget=forms.TextInput(attrs={
+            'class': INPUT_CSS,
+            'placeholder': 'First name',
+            'id': 'id_first_name',
+        }),
+    )
+    last_name = forms.CharField(
+        widget=forms.TextInput(attrs={
+            'class': INPUT_CSS,
+            'placeholder': 'Last name',
+            'id': 'id_last_name',
+        }),
+    )
+    email = forms.EmailField(
+        widget=forms.EmailInput(attrs={
+            'class': INPUT_CSS,
+            'placeholder': 'student@school.edu',
+            'id': 'id_email',
+        }),
+    )
+    phone = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': INPUT_CSS,
+            'placeholder': '+1 (555) 123-4567',
+            'id': 'id_phone',
+        }),
+    )
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={
+            'class': INPUT_CSS,
+            'placeholder': 'Min. 8 characters',
+            'id': 'id_password',
+        }),
+    )
+    password_confirm = forms.CharField(
+        label='Confirm Password',
+        widget=forms.PasswordInput(attrs={
+            'class': INPUT_CSS,
+            'placeholder': 'Re-enter password',
+            'id': 'id_password_confirm',
+        }),
+    )
+    admission_number = forms.CharField(
+        widget=forms.TextInput(attrs={
+            'class': INPUT_CSS,
+            'placeholder': 'e.g., ADM-2026-001',
+            'id': 'id_admission_number',
+        }),
+    )
+    section = forms.ModelChoiceField(
+        queryset=Section.objects.none(),
+        required=False,
+        empty_label='— Unassigned —',
+        widget=forms.Select(attrs={'class': SELECT_CSS, 'id': 'id_section'}),
+    )
+    parent = forms.ModelChoiceField(
+        queryset=User.objects.none(),
+        required=False,
+        empty_label='— No parent linked —',
+        widget=forms.Select(attrs={'class': SELECT_CSS, 'id': 'id_parent'}),
+    )
+
+    def __init__(self, *args, school=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.school = school
+        if school:
+            self.fields['section'].queryset = Section.objects.select_related('classroom').all()
+            self.fields['parent'].queryset = User.objects.filter(
+                school=school,
+                primary_role=PrimaryRoleChoices.PARENT,
+                is_active=True,
+            )
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if email and User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError('A user with this email already exists.')
+        return email
+
+    def clean_admission_number(self):
+        admission_number = self.cleaned_data.get('admission_number')
+        if admission_number and self.school:
+            if Student.unscoped.filter(school=self.school, admission_number=admission_number).exists():
+                raise forms.ValidationError('This admission number is already in use.')
+        return admission_number
+
+    def clean_password(self):
+        password = self.cleaned_data.get('password')
+        if password and len(password) < 8:
+            raise forms.ValidationError('Password must be at least 8 characters.')
+        return password
+
+    def clean_password_confirm(self):
+        password = self.cleaned_data.get('password')
+        password_confirm = self.cleaned_data.get('password_confirm')
+        if password and password_confirm and password != password_confirm:
+            raise forms.ValidationError('Passwords do not match.')
+        return password_confirm
+
+    def save(self, school):
+        user = User.objects.create_user(
+            email=self.cleaned_data['email'],
+            password=self.cleaned_data['password'],
+            first_name=self.cleaned_data['first_name'],
+            last_name=self.cleaned_data['last_name'],
+            phone=self.cleaned_data.get('phone', ''),
+            school=school,
+            primary_role=PrimaryRoleChoices.STUDENT,
+        )
+        student = Student(
+            user=user,
+            school=school,
+            admission_number=self.cleaned_data['admission_number'],
+            section=self.cleaned_data.get('section'),
+            parent=self.cleaned_data.get('parent'),
+        )
+        student.save()
+        return student
+
+
+class StudentEditForm(forms.Form):
+    """Edit an existing student's profile and account details."""
+    first_name = forms.CharField(
+        widget=forms.TextInput(attrs={'class': INPUT_CSS, 'id': 'id_first_name'}),
+    )
+    last_name = forms.CharField(
+        widget=forms.TextInput(attrs={'class': INPUT_CSS, 'id': 'id_last_name'}),
+    )
+    email = forms.EmailField(
+        widget=forms.EmailInput(attrs={'class': INPUT_CSS, 'id': 'id_email'}),
+    )
+    phone = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': INPUT_CSS, 'id': 'id_phone'}),
+    )
+    admission_number = forms.CharField(
+        widget=forms.TextInput(attrs={'class': INPUT_CSS, 'id': 'id_admission_number'}),
+    )
+    section = forms.ModelChoiceField(
+        queryset=Section.objects.none(),
+        required=False,
+        empty_label='— Unassigned —',
+        widget=forms.Select(attrs={'class': SELECT_CSS, 'id': 'id_section'}),
+    )
+    parent = forms.ModelChoiceField(
+        queryset=User.objects.none(),
+        required=False,
+        empty_label='— No parent linked —',
+        widget=forms.Select(attrs={'class': SELECT_CSS, 'id': 'id_parent'}),
+    )
+
+    def __init__(self, *args, school=None, student=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.school = school
+        self.student = student
+        if school:
+            self.fields['section'].queryset = Section.objects.select_related('classroom').all()
+            self.fields['parent'].queryset = User.objects.filter(
+                school=school,
+                primary_role=PrimaryRoleChoices.PARENT,
+                is_active=True,
+            )
+        if student and not kwargs.get('data'):
+            user = student.user
+            self.fields['first_name'].initial = user.first_name
+            self.fields['last_name'].initial = user.last_name
+            self.fields['email'].initial = user.email
+            self.fields['phone'].initial = user.phone
+            self.fields['admission_number'].initial = student.admission_number
+            self.fields['section'].initial = student.section_id
+            self.fields['parent'].initial = student.parent_id
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if email and self.student:
+            qs = User.objects.filter(email__iexact=email).exclude(pk=self.student.user_id)
+            if qs.exists():
+                raise forms.ValidationError('A user with this email already exists.')
+        return email
+
+    def clean_admission_number(self):
+        admission_number = self.cleaned_data.get('admission_number')
+        if admission_number and self.school and self.student:
+            qs = Student.unscoped.filter(
+                school=self.school,
+                admission_number=admission_number,
+            ).exclude(pk=self.student.pk)
+            if qs.exists():
+                raise forms.ValidationError('This admission number is already in use.')
+        return admission_number
+
+    def save(self):
+        user = self.student.user
+        user.first_name = self.cleaned_data['first_name']
+        user.last_name = self.cleaned_data['last_name']
+        user.email = self.cleaned_data['email']
+        user.phone = self.cleaned_data.get('phone', '')
+        user.save()
+        self.student.admission_number = self.cleaned_data['admission_number']
+        self.student.section = self.cleaned_data.get('section')
+        self.student.parent = self.cleaned_data.get('parent')
+        self.student.save()
+        return self.student
+
+
+# ── School Preferences Form ──────────────────────────────────────────────────
+
+class SchoolPreferencesForm(forms.ModelForm):
+    """School Admin preferences: theme color and fee currency."""
+
+    class Meta:
+        model = School
+        fields = ['theme_color', 'currency']
+        widgets = {
+            'theme_color': forms.Select(attrs={
+                'class': SELECT_CSS,
+                'id': 'id_theme_color',
+            }),
+            'currency': forms.Select(attrs={
+                'class': SELECT_CSS,
+                'id': 'id_currency',
+            }),
+        }
+
+
+# ── Profile / Password Forms ─────────────────────────────────────────────────
+
+class ProfileUpdateForm(forms.ModelForm):
+    """Update basic profile details for the logged-in user."""
+
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name', 'phone']
+        widgets = {
+            'first_name': forms.TextInput(attrs={'class': INPUT_CSS, 'id': 'id_first_name'}),
+            'last_name': forms.TextInput(attrs={'class': INPUT_CSS, 'id': 'id_last_name'}),
+            'phone': forms.TextInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': '+1 (555) 123-4567',
+                'id': 'id_phone',
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['first_name'].required = True
+        self.fields['last_name'].required = True
+
+
+class ChangePasswordForm(forms.Form):
+    """Change password for the logged-in user."""
+    current_password = forms.CharField(
+        label='Current Password',
+        widget=forms.PasswordInput(attrs={
+            'class': INPUT_CSS,
+            'id': 'id_current_password',
+            'placeholder': 'Current password',
+        }),
+    )
+    new_password = forms.CharField(
+        label='New Password',
+        widget=forms.PasswordInput(attrs={
+            'class': INPUT_CSS,
+            'id': 'id_new_password',
+            'placeholder': 'Min. 8 characters',
+        }),
+    )
+    new_password_confirm = forms.CharField(
+        label='Confirm New Password',
+        widget=forms.PasswordInput(attrs={
+            'class': INPUT_CSS,
+            'id': 'id_new_password_confirm',
+            'placeholder': 'Re-enter new password',
+        }),
+    )
+
+    def __init__(self, user, *args, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_current_password(self):
+        current = self.cleaned_data.get('current_password')
+        if current and not self.user.check_password(current):
+            raise forms.ValidationError('Current password is incorrect.')
+        return current
+
+    def clean_new_password(self):
+        password = self.cleaned_data.get('new_password')
+        if password and len(password) < 8:
+            raise forms.ValidationError('Password must be at least 8 characters.')
+        return password
+
+    def clean(self):
+        cleaned = super().clean()
+        new = cleaned.get('new_password')
+        confirm = cleaned.get('new_password_confirm')
+        if new and confirm and new != confirm:
+            self.add_error('new_password_confirm', 'Passwords do not match.')
+        return cleaned
+
+    def save(self):
+        self.user.set_password(self.cleaned_data['new_password'])
+        self.user.save()
+        return self.user

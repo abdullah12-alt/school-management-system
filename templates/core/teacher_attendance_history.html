@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance History — SchoolHub{% endblock %}
+{% block page_title %}Attendance History{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <p class="text-sm text-gray-500">Review attendance for your sections.</p>
+        <a href="{% url 'core:attendance_mark' %}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700">
+            <i data-lucide="calendar-check" class="w-4 h-4"></i>
+            Mark Attendance
+        </a>
+    </div>
+
+    <form method="get" class="bg-white rounded-xl border border-gray-200 p-4 grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Section</label>
+            <select name="section" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm">
+                <option value="">All my sections</option>
+                {% for s in sections %}
+                <option value="{{ s.pk }}" {% if section_filter == s.pk|stringformat:"s" %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">From</label>
+            <input type="date" name="from" value="{{ date_from }}" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm">
+        </div>
+        <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">To</label>
+            <input type="date" name="to" value="{{ date_to }}" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm">
+        </div>
+        <div class="flex items-end">
+            <button type="submit" class="w-full px-4 py-2 rounded-lg bg-gray-900 text-white text-xs font-semibold hover:bg-gray-800">Filter</button>
+        </div>
+    </form>
+
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Student</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Section</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Marked By</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for att in attendances %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-3 text-sm text-gray-700">{{ att.date|date:"M d, Y" }}</td>
+                        <td class="px-6 py-3 text-sm font-medium text-gray-900">{{ att.student.user.get_full_name }}</td>
+                        <td class="px-6 py-3 text-sm text-gray-600">{{ att.section }}</td>
+                        <td class="px-6 py-3">
+                            <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold
+                                {% if att.status == 'present' %}bg-emerald-50 text-emerald-700
+                                {% elif att.status == 'late' %}bg-amber-50 text-amber-700
+                                {% elif att.status == 'leave' %}bg-blue-50 text-blue-700
+                                {% else %}bg-red-50 text-red-700{% endif %}">
+                                {{ att.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-3 text-sm text-gray-500">{% if att.marked_by %}{{ att.marked_by.get_full_name }}{% else %}—{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-6 py-12 text-center text-sm text-gray-400">No attendance records found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if page_obj and page_obj.has_other_pages %}
+        <div class="px-6 py-4 border-t border-gray-100 flex justify-between text-xs text-gray-500">
+            <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+            <div class="flex gap-2">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}&section={{ section_filter }}&from={{ date_from }}&to={{ date_to }}" class="px-3 py-1 bg-gray-100 rounded font-semibold">Previous</a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&section={{ section_filter }}&from={{ date_from }}&to={{ date_to }}" class="px-3 py-1 bg-gray-100 rounded font-semibold">Next</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

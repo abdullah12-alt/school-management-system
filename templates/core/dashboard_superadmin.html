@@ -220,7 +220,7 @@
                         <!-- Unpaid Fees -->
                         <td class="px-6 py-4">
                             {% if school.unpaid_invoice_count > 0 %}
-                            <span class="text-xs font-bold text-red-600 dark:text-red-400 block">${{ school.unpaid_invoice_amount }}</span>
+                            <span class="text-xs font-bold text-red-600 dark:text-red-400 block">{{ school.currency_symbol }}{{ school.unpaid_invoice_amount }}</span>
                             <span class="text-[11px] text-gray-400 dark:text-slate-400">{{ school.unpaid_invoice_count }} unpaid invoice(s)</span>
                             {% else %}
                             <span class="text-xs text-emerald-600 dark:text-emerald-400 font-medium">All Clear</span>

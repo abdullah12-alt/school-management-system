@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}{{ student.user.get_full_name }} — SchoolHub{% endblock %}
+{% block page_title %}Student Profile{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <nav class="flex items-center gap-2 text-sm text-gray-400">
+        <a href="{% url 'core:student_list' %}" class="hover:text-primary-600">Students</a>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+        <span class="text-gray-700 font-medium">{{ student.user.get_full_name }}</span>
+    </nav>
+
+    <div class="bg-white rounded-xl border border-gray-200 p-6">
+        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+            <div class="flex items-start gap-4">
+                <div class="w-14 h-14 rounded-2xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                    <span class="text-lg font-bold text-emerald-700">
+                        {{ student.user.first_name|first|upper }}{{ student.user.last_name|first|upper }}
+                    </span>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-gray-900">{{ student.user.get_full_name }}</h3>
+                    <p class="text-sm text-gray-500 mt-0.5">{{ student.user.email }}</p>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
+                            {{ student.admission_number }}
+                        </span>
+                        {% if student.section %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary-50 text-primary-700">
+                            {{ student.section }}
+                        </span>
+                        {% endif %}
+                        {% if student.user.is_active %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">Active</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700">Inactive</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'core:student_edit' student.pk %}" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 text-white text-xs font-semibold hover:bg-primary-700">
+                    <i data-lucide="pencil" class="w-3.5 h-3.5"></i> Edit
+                </a>
+                <form method="post" action="{% url 'core:student_toggle_active' student.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-semibold hover:bg-gray-200">
+                        {% if student.user.is_active %}Deactivate{% else %}Activate{% endif %}
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <dl class="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 border-t border-gray-100 pt-6">
+            <div>
+                <dt class="text-xs font-semibold text-gray-400 uppercase">Phone</dt>
+                <dd class="mt-1 text-sm text-gray-800">{% if student.user.phone %}{{ student.user.phone }}{% else %}—{% endif %}</dd>
+            </div>
+            <div>
+                <dt class="text-xs font-semibold text-gray-400 uppercase">Parent</dt>
+                <dd class="mt-1 text-sm text-gray-800">{% if student.parent %}{{ student.parent.get_full_name }}{% else %}—{% endif %}</dd>
+            </div>
+            <div>
+                <dt class="text-xs font-semibold text-gray-400 uppercase">Class</dt>
+                <dd class="mt-1 text-sm text-gray-800">{% if student.section %}{{ student.section.classroom.name }}{% else %}—{% endif %}</dd>
+            </div>
+            <div>
+                <dt class="text-xs font-semibold text-gray-400 uppercase">Section</dt>
+                <dd class="mt-1 text-sm text-gray-800">{% if student.section %}{{ student.section.name }}{% else %}Unassigned{% endif %}</dd>
+            </div>
+        </dl>
+    </div>
+
+    <!-- Fees summary -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <p class="text-xs font-semibold text-gray-400 uppercase">Total Due</p>
+            <p class="mt-1 text-2xl font-bold text-gray-900">{{ school_currency_symbol }}{{ amount_due }}</p>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <p class="text-xs font-semibold text-gray-400 uppercase">Total Paid</p>
+            <p class="mt-1 text-2xl font-bold text-emerald-600">{{ school_currency_symbol }}{{ amount_paid }}</p>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <p class="text-xs font-semibold text-gray-400 uppercase">Balance</p>
+            <p class="mt-1 text-2xl font-bold {% if balance > 0 %}text-red-600{% else %}text-gray-900{% endif %}">{{ school_currency_symbol }}{{ balance }}</p>
+            {% if unpaid_count %}
+            <p class="text-xs text-red-500 mt-1">{{ unpaid_count }} unpaid / partial invoice{{ unpaid_count|pluralize }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h4 class="text-sm font-bold text-gray-900">Fee Invoices</h4>
+            <a href="{% url 'core:invoice_create' %}" class="text-xs font-semibold text-primary-600 hover:text-primary-700">Create Invoice</a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Fee</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Due</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Paid</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Due Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for invoice in invoices %}
+                    <tr>
+                        <td class="px-6 py-3 text-sm text-gray-800">{{ invoice.fee_structure.name }}</td>
+                        <td class="px-6 py-3 text-sm text-gray-600">{{ school_currency_symbol }}{{ invoice.amount_due }}</td>
+                        <td class="px-6 py-3 text-sm text-gray-600">{{ school_currency_symbol }}{{ invoice.amount_paid }}</td>
+                        <td class="px-6 py-3 text-sm text-gray-600">{{ invoice.due_date|date:"M d, Y" }}</td>
+                        <td class="px-6 py-3">
+                            <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold
+                                {% if invoice.status == 'paid' %}bg-emerald-50 text-emerald-700
+                                {% elif invoice.status == 'partial' %}bg-amber-50 text-amber-700
+                                {% else %}bg-red-50 text-red-700{% endif %}">
+                                {{ invoice.get_status_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-6 py-10 text-center text-sm text-gray-400">No invoices for this student.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if invoice_count > 10 %}
+        <div class="px-6 py-3 border-t border-gray-100 text-xs text-gray-400">
+            Showing latest 10 of {{ invoice_count }}.
+            <a href="{% url 'core:my_invoices_student' student.pk %}" class="text-primary-600 font-semibold">View all</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <h4 class="text-sm font-bold text-gray-900 mb-3">Quick Links</h4>
+        <div class="flex flex-wrap gap-2">
+            <a href="{% url 'core:attendance_history_student' student.pk %}" class="px-3 py-2 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200">Attendance</a>
+            <a href="{% url 'core:exam_results_student' student.pk %}" class="px-3 py-2 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200">Exam Results</a>
+            <a href="{% url 'core:my_invoices_student' student.pk %}" class="px-3 py-2 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200">All Invoices</a>
+        </div>
+    </div>
+
+    <div class="bg-red-50 border border-red-100 rounded-xl p-5">
+        <h4 class="text-sm font-bold text-red-800 mb-2">Danger Zone</h4>
+        <p class="text-xs text-red-600 mb-3">Permanent delete removes the student account and related records. Prefer deactivate when possible.</p>
+        <form method="post" action="{% url 'core:student_delete' student.pk %}" onsubmit="return confirm('Permanently delete this student? This cannot be undone.');">
+            {% csrf_token %}
+            <input type="hidden" name="confirm" value="delete">
+            <button type="submit" class="px-4 py-2 rounded-lg text-xs font-semibold bg-red-600 text-white hover:bg-red-700">
+                Permanently Delete Student
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

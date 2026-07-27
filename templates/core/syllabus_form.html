@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}{% if is_edit %}Edit Syllabus{% else %}Create Syllabus{% endif %} — SchoolHub{% endblock %}
+{% block page_title %}{% if is_edit %}Edit Syllabus{% else %}Create Syllabus{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+    <nav class="mb-6 flex items-center gap-2 text-sm text-gray-400">
+        <a href="{% url 'core:syllabus_list' %}" class="hover:text-primary-600">Syllabus</a>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+        <span class="text-gray-700 font-medium">{% if is_edit %}Edit{% else %}Create{% endif %}</span>
+    </nav>
+
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100">
+            <h3 class="text-base font-bold text-gray-900">{% if is_edit %}Edit Syllabus{% else %}New Syllabus{% endif %}</h3>
+        </div>
+        <form method="post" novalidate class="p-6 space-y-5">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+            <div class="px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+                {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+            </div>
+            {% endif %}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                    <label for="id_classroom" class="block text-sm font-semibold text-gray-700 mb-1.5">Class <span class="text-red-500">*</span></label>
+                    {{ form.classroom }}
+                    {% for error in form.classroom.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                    <label for="id_subject" class="block text-sm font-semibold text-gray-700 mb-1.5">Subject <span class="text-red-500">*</span></label>
+                    {{ form.subject }}
+                    {% for error in form.subject.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+            </div>
+            <div>
+                <label for="id_title" class="block text-sm font-semibold text-gray-700 mb-1.5">Title <span class="text-red-500">*</span></label>
+                {{ form.title }}
+                {% for error in form.title.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+            </div>
+            <div>
+                <label for="id_academic_year" class="block text-sm font-semibold text-gray-700 mb-1.5">Academic Year</label>
+                {{ form.academic_year }}
+                {% for error in form.academic_year.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+            </div>
+            <div>
+                <label for="id_description" class="block text-sm font-semibold text-gray-700 mb-1.5">Description</label>
+                {{ form.description }}
+                {% for error in form.description.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+            </div>
+            <div class="flex items-center gap-3 pt-4 border-t border-gray-100">
+                <button type="submit" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700">
+                    {% if is_edit %}Save Changes{% else %}Create Syllabus{% endif %}
+                </button>
+                <a href="{% url 'core:syllabus_list' %}" class="px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
