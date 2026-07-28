@@ -97,7 +97,10 @@ urlpatterns = [
     path('teacher/students/', views.teacher_students, name='teacher_students'),
     path('teacher/students/<int:student_id>/', views.teacher_student_detail, name='teacher_student_detail'),
     path('teacher/syllabus/', views.teacher_syllabus_list, name='teacher_syllabus_list'),
+    path('teacher/syllabus/create/', views.teacher_syllabus_create, name='teacher_syllabus_create'),
     path('teacher/syllabus/<int:syllabus_id>/', views.teacher_syllabus_detail, name='teacher_syllabus_detail'),
+    path('teacher/syllabus/<int:syllabus_id>/edit/', views.teacher_syllabus_edit, name='teacher_syllabus_edit'),
+    path('teacher/syllabus/units/<int:unit_id>/delete/', views.teacher_syllabus_unit_delete, name='teacher_syllabus_unit_delete'),
     path('profile/', views.profile_view, name='profile'),
 
     # Attendance

@@ -102,6 +102,59 @@ def teacher_can_access_section(user, section):
     return section.timetables.filter(teacher=user).exists()
 
 
+def get_teacher_syllabus_options(user):
+    """
+    Classrooms and subjects a teacher may attach a syllabus to.
+    - Classrooms from assigned sections
+    - Subjects from their timetable; if none, all subjects (class-teacher case)
+    Admins get all classrooms/subjects in tenant scope.
+    """
+    from .models import ClassRoom, Subject, Timetable
+
+    sections = get_teacher_sections(user)
+    classrooms = ClassRoom.objects.filter(
+        id__in=sections.values_list('classroom_id', flat=True)
+    ).distinct()
+
+    if user.is_superuser or getattr(user, 'is_school_admin', False):
+        return classrooms, Subject.objects.all()
+
+    subject_ids = Timetable.objects.filter(
+        teacher=user,
+    ).values_list('subject_id', flat=True).distinct()
+    if subject_ids:
+        subjects = Subject.objects.filter(id__in=subject_ids)
+    else:
+        subjects = Subject.objects.all()
+    return classrooms, subjects
+
+
+def teacher_can_manage_syllabus(user, syllabus):
+    """Whether the teacher may edit this syllabus / its units."""
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser or getattr(user, 'is_school_admin', False):
+        return True
+    if user.primary_role != 'teacher':
+        return False
+
+    sections = get_teacher_sections(user)
+    if not sections.filter(classroom_id=syllabus.classroom_id).exists():
+        return False
+
+    from .models import Timetable
+    subject_ids = list(
+        Timetable.objects.filter(teacher=user).values_list('subject_id', flat=True).distinct()
+    )
+    if subject_ids:
+        return syllabus.subject_id in subject_ids
+    # Class teacher with no timetable subjects may manage syllabi for their classrooms
+    return sections.filter(
+        classroom_id=syllabus.classroom_id,
+        class_teacher=user,
+    ).exists()
+
+
 def can_access_student_data(user, student):
     """
     Check if a user can access a specific student's record.

@@ -647,13 +647,40 @@ class SyllabusForm(forms.ModelForm):
             }),
         }
 
-    def __init__(self, *args, school=None, **kwargs):
+    def __init__(self, *args, school=None, classrooms=None, subjects=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self._school = school
         self.fields['academic_year'].required = False
         self.fields['description'].required = False
-        if school:
+        if classrooms is not None:
+            self.fields['classroom'].queryset = classrooms
+        elif school:
             self.fields['classroom'].queryset = ClassRoom.objects.all()
+        if subjects is not None:
+            self.fields['subject'].queryset = subjects
+        elif school:
             self.fields['subject'].queryset = Subject.objects.all()
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        # Always bind tenant from classroom — request/thread school can be unset
+        # (e.g. platform admin without impersonation).
+        if not instance.school_id:
+            classroom = self.cleaned_data.get('classroom') or instance.classroom
+            school_id = getattr(self._school, 'pk', None) or getattr(classroom, 'school_id', None)
+            if not school_id and getattr(instance, 'classroom_id', None):
+                school_id = (
+                    ClassRoom.unscoped
+                    .filter(pk=instance.classroom_id)
+                    .values_list('school_id', flat=True)
+                    .first()
+                )
+            if school_id:
+                instance.school_id = school_id
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance
 
 
 class SyllabusUnitForm(forms.ModelForm):

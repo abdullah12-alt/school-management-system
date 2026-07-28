@@ -22,6 +22,7 @@ from .decorators import (
     school_admin_required, teacher_required, accountant_required,
     student_or_parent_required, can_access_student_data,
     get_teacher_sections, teacher_can_access_section,
+    get_teacher_syllabus_options, teacher_can_manage_syllabus,
 )
 from .managers import get_current_school
 from .models import (
@@ -1326,7 +1327,13 @@ def syllabus_create(request):
     form = SyllabusForm(request.POST or None, school=school)
     if request.method == 'POST' and form.is_valid():
         syllabus = form.save(commit=False)
-        syllabus.school = school
+        if not syllabus.school_id:
+            messages.error(
+                request,
+                'Could not determine school. Impersonate a school or ensure '
+                'your account is linked to one, then try again.',
+            )
+            return redirect('core:syllabus_list')
         syllabus.save()
         messages.success(request, f'Syllabus "{syllabus.title}" has been created.')
         return redirect('core:syllabus_detail', syllabus_id=syllabus.pk)
@@ -1741,43 +1748,136 @@ def teacher_student_detail(request, student_id):
 @teacher_required
 def teacher_syllabus_list(request):
     """Syllabi for classes the teacher teaches."""
-    sections = get_teacher_sections(request.user)
-    classroom_ids = sections.values_list('classroom_id', flat=True).distinct()
+    classrooms, subjects = get_teacher_syllabus_options(request.user)
     syllabi = Syllabus.objects.filter(
-        classroom_id__in=classroom_ids,
+        classroom__in=classrooms,
     ).select_related('classroom', 'subject').prefetch_related('units')
 
-    # Prefer syllabi matching subjects the teacher teaches when they are a teacher
     if request.user.primary_role == 'teacher' and not request.user.is_superuser:
-        subject_ids = Timetable.objects.filter(
-            teacher=request.user,
-        ).values_list('subject_id', flat=True).distinct()
+        subject_ids = list(subjects.values_list('id', flat=True))
         if subject_ids:
-            syllabi = syllabi.filter(
-                Q(subject_id__in=subject_ids) | Q(classroom_id__in=classroom_ids)
-            )
+            syllabi = syllabi.filter(subject_id__in=subject_ids)
 
     return render(request, 'core/teacher_syllabus_list.html', {
         'syllabi': syllabi.distinct(),
+        'can_create': classrooms.exists() and subjects.exists(),
+    })
+
+
+@teacher_required
+def teacher_syllabus_create(request):
+    """Teacher creates a syllabus for an assigned class/subject."""
+    school = get_request_school(request) or request.user.school
+    classrooms, subjects = get_teacher_syllabus_options(request.user)
+    if not classrooms.exists() or not subjects.exists():
+        messages.error(
+            request,
+            'No assigned classes/subjects found. Contact your school admin '
+            'to assign you on the timetable first.'
+        )
+        return redirect('core:teacher_syllabus_list')
+
+    form = SyllabusForm(
+        request.POST or None,
+        school=school,
+        classrooms=classrooms,
+        subjects=subjects,
+    )
+    if request.method == 'POST' and form.is_valid():
+        syllabus = form.save(commit=False)
+        if not teacher_can_manage_syllabus(request.user, syllabus):
+            messages.error(request, 'You cannot create a syllabus for that class/subject.')
+            return redirect('core:teacher_syllabus_list')
+        if not syllabus.school_id:
+            messages.error(request, 'Could not determine school for this syllabus.')
+            return redirect('core:teacher_syllabus_list')
+        syllabus.save()
+        messages.success(request, f'Syllabus "{syllabus.title}" has been created.')
+        return redirect('core:teacher_syllabus_detail', syllabus_id=syllabus.pk)
+
+    return render(request, 'core/teacher_syllabus_form.html', {
+        'form': form,
+        'is_edit': False,
+    })
+
+
+@teacher_required
+def teacher_syllabus_edit(request, syllabus_id):
+    """Teacher edits a syllabus they can manage."""
+    school = get_request_school(request) or request.user.school
+    syllabus = get_object_or_404(Syllabus, pk=syllabus_id)
+    if not teacher_can_manage_syllabus(request.user, syllabus):
+        raise Http404("Syllabus not found.")
+
+    classrooms, subjects = get_teacher_syllabus_options(request.user)
+    form = SyllabusForm(
+        request.POST or None,
+        school=school,
+        classrooms=classrooms,
+        subjects=subjects,
+        instance=syllabus,
+    )
+    if request.method == 'POST' and form.is_valid():
+        updated = form.save(commit=False)
+        if not teacher_can_manage_syllabus(request.user, updated):
+            messages.error(request, 'You cannot move this syllabus to that class/subject.')
+            return redirect('core:teacher_syllabus_detail', syllabus_id=syllabus.pk)
+        updated.save()
+        messages.success(request, f'Syllabus "{updated.title}" has been updated.')
+        return redirect('core:teacher_syllabus_detail', syllabus_id=updated.pk)
+
+    return render(request, 'core/teacher_syllabus_form.html', {
+        'form': form,
+        'syllabus': syllabus,
+        'is_edit': True,
     })
 
 
 @teacher_required
 def teacher_syllabus_detail(request, syllabus_id):
-    """View syllabus units for a class the teacher can access."""
+    """View syllabus units and allow teachers to add/remove units."""
     syllabus = get_object_or_404(
         Syllabus.objects.select_related('classroom', 'subject').prefetch_related('units'),
         pk=syllabus_id,
     )
-    sections = get_teacher_sections(request.user)
-    if not sections.filter(classroom=syllabus.classroom).exists():
-        if not (request.user.is_superuser or request.user.is_school_admin):
-            raise Http404("Syllabus not found.")
+    can_edit = teacher_can_manage_syllabus(request.user, syllabus)
+    if not can_edit:
+        sections = get_teacher_sections(request.user)
+        if not sections.filter(classroom=syllabus.classroom).exists():
+            if not (request.user.is_superuser or request.user.is_school_admin):
+                raise Http404("Syllabus not found.")
+
+    unit_form = SyllabusUnitForm(request.POST or None) if can_edit else None
+    if can_edit and request.method == 'POST' and unit_form.is_valid():
+        unit = unit_form.save(commit=False)
+        unit.syllabus = syllabus
+        if not unit.order:
+            last = syllabus.units.order_by('-order').first()
+            unit.order = (last.order + 1) if last else 1
+        unit.save()
+        messages.success(request, f'Unit "{unit.title}" added.')
+        return redirect('core:teacher_syllabus_detail', syllabus_id=syllabus.pk)
 
     return render(request, 'core/teacher_syllabus_detail.html', {
         'syllabus': syllabus,
         'units': syllabus.units.all(),
+        'unit_form': unit_form,
+        'can_edit': can_edit,
     })
+
+
+@teacher_required
+def teacher_syllabus_unit_delete(request, unit_id):
+    """Teacher removes a unit from a syllabus they manage."""
+    unit = get_object_or_404(SyllabusUnit.objects.select_related('syllabus'), pk=unit_id)
+    syllabus = unit.syllabus
+    if not teacher_can_manage_syllabus(request.user, syllabus):
+        raise Http404("Unit not found.")
+    if request.method == 'POST':
+        title = unit.title
+        unit.delete()
+        messages.success(request, f'Unit "{title}" has been removed.')
+    return redirect('core:teacher_syllabus_detail', syllabus_id=syllabus.pk)
 
 
 @login_required
