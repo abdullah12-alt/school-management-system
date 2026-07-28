@@ -21,6 +21,7 @@ A production-ready, multi-tenant School Management System built with Django and 
 ### Prerequisites
 - Python 3.10+
 - pip
+- A PostgreSQL database (e.g. [Neon](https://neon.tech)) — or leave `DATABASE_URL` unset to use local SQLite
 
 ### Steps
 
@@ -42,13 +43,17 @@ pip install -r school-saas/requirements.txt
 # 4. Navigate to the Django project
 cd school-saas
 
-# 5. Apply migrations
+# 5. Configure database (copy example and set your Neon URL)
+copy .env.example .env
+# Edit .env and set DATABASE_URL=postgresql://...?sslmode=require
+
+# 6. Apply migrations
 python manage.py migrate
 
-# 6. Seed demo data (creates 2 schools + all demo accounts)
+# 7. Seed demo data (creates 2 schools + all demo accounts)
 python manage.py seed_demo_data
 
-# 7. Run the development server
+# 8. Run the development server
 python manage.py runserver
 ```
 

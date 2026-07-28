@@ -3,9 +3,14 @@ Django settings for School Management System.
 """
 import os
 from pathlib import Path
+
 import dj_database_url
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load local env vars from .env (Neon DATABASE_URL, SECRET_KEY, etc.)
+load_dotenv(BASE_DIR / '.env')
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-sms-dev-key-change-in-production-!@#$%^&*()')
 
