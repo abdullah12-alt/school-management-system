@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}My Timetable — SchoolHub{% endblock %}
+{% block page_title %}My Timetable{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Student Info Card -->
+    <div class="bg-white rounded-xl border border-gray-200 p-6 flex items-center gap-4">
+        <div class="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
+            <span class="text-lg font-bold text-primary-700">{{ student.user.first_name|first|upper }}</span>
+        </div>
+        <div>
+            <h3 class="text-base font-bold text-gray-900">{{ student.user.get_full_name }}</h3>
+            <p class="text-xs text-gray-500">
+                Admission #: <strong>{{ student.admission_number }}</strong>
+                {% if student.section %}&bull; Section: <strong>{{ student.section }}</strong>{% endif %}
+            </p>
+        </div>
+    </div>
+
+    <p class="text-sm text-gray-500">This week’s timetable (weekly schedule).</p>
+
+    <!-- Timetable -->
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {% for day, slots in day_rows %}
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                <h3 class="text-sm font-bold text-gray-900">{{ day.label }}</h3>
+            </div>
+            <ul class="divide-y divide-gray-100 min-h-[80px]">
+                {% for slot in slots %}
+                <li class="px-4 py-3">
+                    <p class="text-sm font-semibold text-gray-900">{{ slot.subject.name }}</p>
+                    <p class="text-xs text-gray-500 mt-0.5">
+                        {{ slot.start_time|time:"H:i" }}–{{ slot.end_time|time:"H:i" }}
+                    </p>
+                </li>
+                {% empty %}
+                <li class="px-4 py-6 text-center text-xs text-gray-400">No classes</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+

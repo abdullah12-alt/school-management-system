@@ -22,6 +22,11 @@ urlpatterns = [
     path('dashboard/student/', views.dashboard_student, name='dashboard_student'),
     path('dashboard/parent/', views.dashboard_parent, name='dashboard_parent'),
 
+    # Student Portal (Timetable / Subjects / Learning Materials)
+    path('student/timetable/', views.student_timetable, name='student_timetable'),
+    path('student/subjects/', views.student_subjects, name='student_subjects'),
+    path('student/subjects/<int:subject_id>/', views.student_subject_detail, name='student_subject_detail'),
+
     # Platform Management (Superadmin)
     path('platform/schools/create/', views.platform_school_create, name='platform_school_create'),
     path('platform/schools/<int:school_id>/edit/', views.platform_school_edit, name='platform_school_edit'),

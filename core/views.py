@@ -663,6 +663,101 @@ def dashboard_parent(request):
     })
 
 
+# ── Student Portal Views (Timetable / Subjects / Study Materials) ───────
+def _get_student_for_student_portal(request):
+    """
+    Resolve the Student instance for a student/parent user.
+    Returns None when the request user does not map to a student.
+    """
+    user = request.user
+    if user.primary_role == 'student':
+        return getattr(user, 'student_profile', None)
+    if user.primary_role == 'parent':
+        return user.children.first()
+    return None
+
+
+@student_or_parent_required
+def student_timetable(request):
+    """Student/Parent: show weekly timetable for the student's section."""
+    user = request.user
+    if user.primary_role not in ['student', 'parent'] and not user.is_superuser:
+        return redirect('core:dashboard')
+
+    student = _get_student_for_student_portal(request)
+    if not student or not student.section:
+        messages.error(request, 'Student section not found.')
+        return redirect('core:dashboard_student')
+
+    slots = Timetable.objects.filter(section=student.section).select_related(
+        'subject',
+        'section',
+        'section__classroom',
+        'teacher',
+    ).order_by('day_of_week', 'start_time')
+
+    days = list(DayOfWeekChoices)
+    timetable_by_day = {day.value: [] for day in days}
+    for slot in slots:
+        timetable_by_day[slot.day_of_week].append(slot)
+
+    day_rows = [(day, timetable_by_day.get(day.value, [])) for day in days]
+
+    return render(request, 'core/student_timetable.html', {
+        'student': student,
+        'day_rows': day_rows,
+    })
+
+
+@student_or_parent_required
+def student_subjects(request):
+    """Student/Parent: list subjects assigned via timetable for the section."""
+    user = request.user
+    if user.primary_role not in ['student', 'parent'] and not user.is_superuser:
+        return redirect('core:dashboard')
+
+    student = _get_student_for_student_portal(request)
+    if not student or not student.section:
+        messages.error(request, 'Student section not found.')
+        return redirect('core:dashboard_student')
+
+    subjects = Subject.objects.filter(timetables__section=student.section).distinct().order_by('name')
+    return render(request, 'core/student_subjects.html', {
+        'student': student,
+        'subjects': subjects,
+    })
+
+
+@student_or_parent_required
+def student_subject_detail(request, subject_id):
+    """Student/Parent: show study material (Syllabus + units) for a subject."""
+    user = request.user
+    if user.primary_role not in ['student', 'parent'] and not user.is_superuser:
+        return redirect('core:dashboard')
+
+    student = _get_student_for_student_portal(request)
+    if not student or not student.section:
+        messages.error(request, 'Student section not found.')
+        return redirect('core:dashboard_student')
+
+    subject = get_object_or_404(Subject, pk=subject_id)
+
+    # Ensure this subject is actually assigned to the student's section.
+    if not Timetable.objects.filter(section=student.section, subject=subject).exists():
+        raise Http404("Subject not assigned for this student.")
+
+    syllabi = Syllabus.objects.filter(
+        classroom=student.section.classroom,
+        subject=subject,
+    ).prefetch_related('units').order_by('-created_at')
+
+    return render(request, 'core/student_subject_detail.html', {
+        'student': student,
+        'subject': subject,
+        'syllabi': syllabi,
+    })
+
+
 @login_required
 def dashboard_accountant(request):
     """Accountant dashboard listing outstanding invoices."""

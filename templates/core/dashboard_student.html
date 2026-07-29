@@ -98,5 +98,52 @@
         </div>
 
     </div>
+
+    <!-- Quick Links -->
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <a href="{% url 'core:student_timetable' %}"
+           class="bg-white rounded-xl border border-gray-200 p-5 hover:border-primary-300 hover:bg-primary-50 transition-all duration-200">
+            <div class="flex items-center gap-3">
+                <i data-lucide="calendar-days" class="w-5 h-5 text-primary-600"></i>
+                <div>
+                    <p class="text-sm font-bold text-gray-900">Timetable</p>
+                    <p class="text-xs text-gray-500">View weekly schedule</p>
+                </div>
+            </div>
+        </a>
+
+        <a href="{% url 'core:student_subjects' %}"
+           class="bg-white rounded-xl border border-gray-200 p-5 hover:border-primary-300 hover:bg-primary-50 transition-all duration-200">
+            <div class="flex items-center gap-3">
+                <i data-lucide="book-open" class="w-5 h-5 text-primary-600"></i>
+                <div>
+                    <p class="text-sm font-bold text-gray-900">Subjects</p>
+                    <p class="text-xs text-gray-500">Assigned courses</p>
+                </div>
+            </div>
+        </a>
+
+        <a href="{% url 'core:attendance_history' %}"
+           class="bg-white rounded-xl border border-gray-200 p-5 hover:border-primary-300 hover:bg-primary-50 transition-all duration-200">
+            <div class="flex items-center gap-3">
+                <i data-lucide="calendar" class="w-5 h-5 text-primary-600"></i>
+                <div>
+                    <p class="text-sm font-bold text-gray-900">Attendance</p>
+                    <p class="text-xs text-gray-500">Full history</p>
+                </div>
+            </div>
+        </a>
+
+        <a href="{% url 'core:profile' %}"
+           class="bg-white rounded-xl border border-gray-200 p-5 hover:border-primary-300 hover:bg-primary-50 transition-all duration-200">
+            <div class="flex items-center gap-3">
+                <i data-lucide="user-cog" class="w-5 h-5 text-primary-600"></i>
+                <div>
+                    <p class="text-sm font-bold text-gray-900">Profile</p>
+                    <p class="text-xs text-gray-500">Update details</p>
+                </div>
+            </div>
+        </a>
+    </div>
 </div>
 {% endblock %}
