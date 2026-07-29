@@ -8,7 +8,8 @@ from .models import (
     School, Department, User, Role, UserRole,
     ClassRoom, Section, Subject, Student, Staff, Timetable,
     StudentAttendance, Exam, ExamResult, FeeStructure, Invoice,
-    Syllabus, SyllabusUnit,
+    PaymentRecord, Expense, StaffSalary,
+    Syllabus, SyllabusUnit, Homework,
 )
 
 
@@ -196,3 +197,35 @@ class SyllabusUnitAdmin(admin.ModelAdmin):
     list_display = ['title', 'syllabus', 'order']
     list_filter = ['syllabus__school', 'syllabus']
     search_fields = ['title', 'syllabus__title']
+
+
+@admin.register(PaymentRecord)
+class PaymentRecordAdmin(admin.ModelAdmin):
+    list_display = ['invoice', 'amount', 'payment_date', 'payment_method', 'received_by']
+    list_filter = ['payment_method', 'payment_date']
+    search_fields = ['invoice__student__user__first_name', 'invoice__student__user__last_name']
+    readonly_fields = ['created_at']
+
+
+@admin.register(Expense)
+class ExpenseAdmin(ScopedAdminMixin, admin.ModelAdmin):
+    list_display = ['title', 'category', 'amount', 'expense_date', 'recorded_by', 'school']
+    list_filter = ['category', 'school', 'expense_date']
+    search_fields = ['title', 'description']
+    readonly_fields = ['created_at']
+
+
+@admin.register(StaffSalary)
+class StaffSalaryAdmin(ScopedAdminMixin, admin.ModelAdmin):
+    list_display = ['staff_user', 'month', 'base_salary', 'bonus', 'deductions', 'is_paid', 'school']
+    list_filter = ['is_paid', 'month', 'school']
+    search_fields = ['staff_user__first_name', 'staff_user__last_name', 'staff_user__email']
+    readonly_fields = ['created_at']
+
+
+@admin.register(Homework)
+class HomeworkAdmin(ScopedAdminMixin, admin.ModelAdmin):
+    list_display = ['title', 'section', 'subject', 'teacher', 'due_date', 'school']
+    list_filter = ['due_date', 'school', 'subject']
+    search_fields = ['title', 'description', 'teacher__first_name', 'teacher__last_name']
+    readonly_fields = ['created_at']

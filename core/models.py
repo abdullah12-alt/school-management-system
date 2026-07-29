@@ -4,7 +4,8 @@ Core models for the School Management System.
 Hierarchy:
     School (tenant) → Department, Role, User, UserRole, ClassRoom, Section,
     Subject, Student, Staff, Timetable, StudentAttendance, Exam, ExamResult,
-    FeeStructure, Invoice, Syllabus, SyllabusUnit.
+    FeeStructure, Invoice, PaymentRecord, Expense, StaffSalary,
+    Syllabus, SyllabusUnit.
     All school-owned models inherit from TenantModel for automatic scoping.
 """
 from django.conf import settings
@@ -44,6 +45,24 @@ class InvoiceStatusChoices(models.TextChoices):
     UNPAID = 'unpaid', 'Unpaid'
     PARTIAL = 'partial', 'Partial'
     PAID = 'paid', 'Paid'
+
+
+class PaymentMethodChoices(models.TextChoices):
+    CASH = 'cash', 'Cash'
+    BANK_TRANSFER = 'bank_transfer', 'Bank Transfer'
+    CHEQUE = 'cheque', 'Cheque'
+    ONLINE = 'online', 'Online Payment'
+    OTHER = 'other', 'Other'
+
+
+class ExpenseCategoryChoices(models.TextChoices):
+    SALARIES = 'salaries', 'Salaries'
+    SUPPLIES = 'supplies', 'Supplies & Stationery'
+    UTILITIES = 'utilities', 'Utilities'
+    MAINTENANCE = 'maintenance', 'Maintenance & Repairs'
+    RENT = 'rent', 'Rent'
+    TRANSPORT = 'transport', 'Transport'
+    OTHER = 'other', 'Other'
 
 
 class DayOfWeekChoices(models.TextChoices):
@@ -701,6 +720,35 @@ class Timetable(TenantModel):
         return f"{self.section} | {self.subject.name} | {self.get_day_of_week_display()} {self.start_time}-{self.end_time}"
 
 
+class Homework(TenantModel):
+    """Daily homework assigned by a teacher to a section for a specific subject."""
+    section = models.ForeignKey(
+        Section,
+        on_delete=models.CASCADE,
+        related_name='homeworks'
+    )
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.CASCADE,
+        related_name='homeworks'
+    )
+    teacher = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='assigned_homeworks'
+    )
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    due_date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-due_date', '-created_at']
+
+    def __str__(self):
+        return f"{self.title} - {self.section} ({self.subject.name})"
+
+
 # ── Attendance Models ────────────────────────────────────────────────────────
 
 class StudentAttendance(TenantModel):
@@ -815,12 +863,21 @@ class Invoice(TenantModel):
     )
     amount_due = models.DecimalField(max_digits=10, decimal_places=2)
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    discount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    discount_reason = models.CharField(max_length=255, blank=True)
     due_date = models.DateField()
     status = models.CharField(
         max_length=20,
         choices=InvoiceStatusChoices.choices,
         default=InvoiceStatusChoices.UNPAID
     )
+    issued_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='issued_invoices',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-due_date', '-id']
@@ -829,8 +886,133 @@ class Invoice(TenantModel):
         return f"Invoice #{self.id} | {self.student.user.get_full_name()} | {self.get_status_display()}"
 
     @property
+    def net_due(self):
+        """Amount due after applying discount."""
+        return self.amount_due - self.discount
+
+    @property
     def remaining_balance(self):
-        return self.amount_due - self.amount_paid
+        return self.net_due - self.amount_paid
+
+    @property
+    def is_overdue(self):
+        import datetime
+        return self.status != InvoiceStatusChoices.PAID and self.due_date < datetime.date.today()
+
+    def recompute_status(self):
+        """Recalculate and save status based on amount_paid vs net_due."""
+        net = self.net_due
+        if self.amount_paid <= 0:
+            self.status = InvoiceStatusChoices.UNPAID
+        elif self.amount_paid >= net:
+            self.status = InvoiceStatusChoices.PAID
+        else:
+            self.status = InvoiceStatusChoices.PARTIAL
+
+
+# ── Payment Record ───────────────────────────────────────────────────────────
+
+class PaymentRecord(models.Model):
+    """Records a single payment event against a student invoice."""
+    invoice = models.ForeignKey(
+        Invoice,
+        on_delete=models.CASCADE,
+        related_name='payments',
+    )
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    payment_date = models.DateField()
+    payment_method = models.CharField(
+        max_length=30,
+        choices=PaymentMethodChoices.choices,
+        default=PaymentMethodChoices.CASH,
+    )
+    notes = models.TextField(blank=True)
+    received_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='payments_received',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-payment_date', '-id']
+
+    def __str__(self):
+        return f"Payment of {self.amount} on {self.payment_date} for Invoice #{self.invoice_id}"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Re-aggregate all payments for the invoice and update its status
+        from django.db.models import Sum as _Sum
+        total_paid = PaymentRecord.objects.filter(
+            invoice=self.invoice
+        ).aggregate(t=_Sum('amount'))['t'] or 0
+        inv = self.invoice
+        inv.amount_paid = total_paid
+        inv.recompute_status()
+        inv.save(update_fields=['amount_paid', 'status'])
+
+
+# ── Expense Tracking ──────────────────────────────────────────────────────────
+
+class Expense(TenantModel):
+    """School operating expense record."""
+    title = models.CharField(max_length=255)
+    category = models.CharField(
+        max_length=30,
+        choices=ExpenseCategoryChoices.choices,
+        default=ExpenseCategoryChoices.OTHER,
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    expense_date = models.DateField()
+    description = models.TextField(blank=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='recorded_expenses',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-expense_date', '-id']
+
+    def __str__(self):
+        return f"{self.title} — {self.amount} ({self.expense_date})"
+
+
+# ── Staff Salary Management ───────────────────────────────────────────────────
+
+class StaffSalary(TenantModel):
+    """Monthly salary record for a staff/teacher user."""
+    staff_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='salary_records',
+    )
+    month = models.CharField(
+        max_length=7,
+        help_text='Format: YYYY-MM, e.g. 2026-07',
+    )
+    base_salary = models.DecimalField(max_digits=12, decimal_places=2)
+    bonus = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    paid_date = models.DateField(null=True, blank=True)
+    is_paid = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-month', 'staff_user__first_name']
+        unique_together = ['school', 'staff_user', 'month']
+
+    def __str__(self):
+        return f"{self.staff_user.get_full_name()} — {self.month}"
+
+    @property
+    def net_salary(self):
+        return self.base_salary + self.bonus - self.deductions
 
 
 # ── Syllabus / Curriculum Models ─────────────────────────────────────────────

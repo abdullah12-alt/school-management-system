@@ -110,6 +110,11 @@
                     Syllabus
                 </a>
 
+                <a href="{% url 'core:teacher_homework_list' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="book-open" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    Homework Diary
+                </a>
+
                 <a href="{% url 'core:teacher_students' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
                     <i data-lucide="graduation-cap" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
                     My Students
@@ -143,6 +148,11 @@
                     My Attendance
                 </a>
 
+                <a href="{% url 'core:student_homework_list' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="book-open" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    Homework Diary
+                </a>
+
                 <a href="{% url 'core:exam_results' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
                     <i data-lucide="award" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
                     Exam Results
@@ -173,10 +183,37 @@
                 <p class="px-3 pt-4 text-[11px] font-semibold text-gray-400 dark:text-slate-400 uppercase tracking-wider mb-2">Finance</p>
 
                 <a href="{% url 'core:invoice_list' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
-                    <i data-lucide="dollar-sign" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    <i data-lucide="file-text" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
                     Fee Invoices
                 </a>
+
+                <a href="{% url 'core:fee_structure_list' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="layers" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    Fee Structures
+                </a>
+
+                <a href="{% url 'core:bulk_invoice_create' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="copy-plus" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    Bulk Invoice
+                </a>
+
+                <a href="{% url 'core:expense_list' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="receipt" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    Expenses
+                </a>
+
+                <a href="{% url 'core:salary_list' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="banknote" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    Salaries
+                </a>
+
+                <a href="{% url 'core:finance_report' %}" class="nav-link group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary-700 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-700/60 transition-all duration-200">
+                    <i data-lucide="bar-chart-2" class="w-[18px] h-[18px] text-gray-400 dark:text-slate-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"></i>
+                    Finance Report
+                </a>
                 {% endif %}
+
+
 
                 {% if is_school_admin or is_platform_admin %}
                 <p class="px-3 pt-5 text-[11px] font-semibold text-gray-400 dark:text-slate-400 uppercase tracking-wider mb-2">Academics</p>

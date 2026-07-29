@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Bulk Invoice — SchoolHub{% endblock %}
+{% block page_title %}Bulk Invoice Generation{% endblock %}
+
+{% block content %}
+<div class="max-w-xl">
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100">
+            <h3 class="text-base font-bold text-gray-900">Generate Invoices for a Class</h3>
+            <p class="text-xs text-gray-500 mt-0.5">Creates one invoice per student in the selected class or section. Duplicates are skipped automatically.</p>
+        </div>
+        <form method="post" class="p-6 space-y-5">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+                {{ form.non_field_errors }}
+            </div>
+            {% endif %}
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                    <label for="id_bi_classroom" class="block text-sm font-semibold text-gray-700 mb-1.5">Classroom <span class="text-gray-400 font-normal">(optional)</span></label>
+                    {{ form.classroom }}
+                    {% if form.classroom.errors %}<p class="mt-1 text-xs text-red-600">{{ form.classroom.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="id_bi_section" class="block text-sm font-semibold text-gray-700 mb-1.5">Section <span class="text-gray-400 font-normal">(optional)</span></label>
+                    {{ form.section }}
+                    {% if form.section.errors %}<p class="mt-1 text-xs text-red-600">{{ form.section.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+
+            <div>
+                <label for="id_bi_fee_structure" class="block text-sm font-semibold text-gray-700 mb-1.5">Fee Structure *</label>
+                {{ form.fee_structure }}
+                {% if form.fee_structure.errors %}<p class="mt-1 text-xs text-red-600">{{ form.fee_structure.errors.0 }}</p>{% endif %}
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                    <label for="id_bi_amount_due" class="block text-sm font-semibold text-gray-700 mb-1.5">Amount Due ({{ school_currency_symbol }}) *</label>
+                    {{ form.amount_due }}
+                    {% if form.amount_due.errors %}<p class="mt-1 text-xs text-red-600">{{ form.amount_due.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="id_bi_due_date" class="block text-sm font-semibold text-gray-700 mb-1.5">Due Date *</label>
+                    {{ form.due_date }}
+                    {% if form.due_date.errors %}<p class="mt-1 text-xs text-red-600">{{ form.due_date.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3">
+                <i data-lucide="info" class="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0"></i>
+                <p class="text-xs text-amber-800">Leave both Classroom and Section blank to generate invoices for ALL students in the school.</p>
+            </div>
+
+            <div class="flex items-center gap-3 pt-4 border-t border-gray-100">
+                <button type="submit" id="btn-bulk-invoice"
+                        class="px-6 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold text-sm rounded-xl transition-colors shadow-sm">
+                    <i data-lucide="copy-plus" class="w-4 h-4 inline mr-1"></i>
+                    Generate Invoices
+                </button>
+                <a href="{% url 'core:invoice_list' %}" class="px-5 py-2.5 text-gray-600 hover:bg-gray-100 font-semibold text-sm rounded-xl transition-colors">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,15 +1,16 @@
 """
 Views for authentication, dashboards, account management, academics, attendance, exams, and finance.
 """
+import csv
 import datetime
 from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import Http404, HttpResponseForbidden
+from django.http import Http404, HttpResponse, HttpResponseForbidden
 from django.core.paginator import Paginator
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, Count
 
 from .forms import (
     LoginForm, StaffCreateForm, RoleAssignmentForm, RoleCreateForm,
@@ -17,6 +18,8 @@ from .forms import (
     SubscriptionPlanForm, ClassRoomForm, SectionForm, SubjectForm,
     SyllabusForm, SyllabusUnitForm, StudentCreateForm, StudentEditForm,
     SchoolPreferencesForm, ProfileUpdateForm, ChangePasswordForm, TimetableForm,
+    FeeStructureForm, RecordPaymentForm, BulkInvoiceForm, ExpenseForm, StaffSalaryForm,
+    HomeworkForm,
 )
 from .decorators import (
     school_admin_required, teacher_required, accountant_required,
@@ -32,6 +35,8 @@ from .models import (
     AttendanceStatusChoices, InvoiceStatusChoices, PlatformActivity,
     ActivityTypeChoices, PlanChoices, SubscriptionPlan,
     Syllabus, SyllabusUnit, DayOfWeekChoices,
+    PaymentRecord, Expense, StaffSalary, ExpenseCategoryChoices,
+    Homework,
 )
 
 def get_request_school(request):
@@ -760,21 +765,47 @@ def student_subject_detail(request, subject_id):
 
 @login_required
 def dashboard_accountant(request):
-    """Accountant dashboard listing outstanding invoices."""
+    """Accountant dashboard — enriched with monthly stats, recent payments, overdue counts."""
     user = request.user
     if user.primary_role != 'accountant' and not user.is_superuser:
         return redirect('core:dashboard')
 
-    outstanding_invoices = Invoice.objects.filter(
-        status__in=['unpaid', 'partial']
-    ).select_related('student__user', 'fee_structure')
+    today = datetime.date.today()
+    month_start = today.replace(day=1)
 
-    total_unpaid_sum = outstanding_invoices.aggregate(Sum('amount_due'))['amount_due__sum'] or Decimal('0.00')
+    all_invoices = Invoice.objects.select_related('student__user', 'fee_structure')
+
+    outstanding_invoices = all_invoices.filter(status__in=['unpaid', 'partial'])
+    overdue_invoices = [inv for inv in outstanding_invoices if inv.is_overdue]
+
+    total_collected_month = PaymentRecord.objects.filter(
+        payment_date__gte=month_start
+    ).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+
+    total_outstanding_sum = sum(inv.remaining_balance for inv in outstanding_invoices)
+
+    total_expenses_month = Expense.objects.filter(
+        expense_date__gte=month_start
+    ).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+
+    recent_payments = PaymentRecord.objects.select_related(
+        'invoice__student__user', 'received_by'
+    ).order_by('-created_at')[:5]
+
+    total_students = Student.objects.count()
+    paid_students = all_invoices.filter(status='paid').values('student').distinct().count()
 
     return render(request, 'core/dashboard_accountant.html', {
-        'outstanding_invoices': outstanding_invoices,
-        'total_unpaid_sum': total_unpaid_sum,
+        'outstanding_invoices': outstanding_invoices[:10],
+        'overdue_count': len(overdue_invoices),
+        'total_outstanding_sum': total_outstanding_sum,
+        'total_collected_month': total_collected_month,
+        'total_expenses_month': total_expenses_month,
+        'recent_payments': recent_payments,
+        'total_students': total_students,
+        'paid_students': paid_students,
     })
+
 
 
 @login_required
@@ -1124,7 +1155,337 @@ def my_invoices(request, student_id=None):
     })
 
 
+@accountant_required
+def invoice_detail(request, invoice_id):
+    """Full detail view for a single invoice with payment history."""
+    invoice = get_object_or_404(
+        Invoice.objects.select_related('student__user', 'fee_structure', 'issued_by'),
+        pk=invoice_id,
+    )
+    payments = invoice.payments.select_related('received_by').order_by('-payment_date')
+    return render(request, 'core/invoice_detail.html', {
+        'invoice': invoice,
+        'payments': payments,
+    })
+
+
+@accountant_required
+def record_payment(request, invoice_id):
+    """Record a payment against an invoice (POST only)."""
+    invoice = get_object_or_404(Invoice, pk=invoice_id)
+
+    if invoice.status == 'paid':
+        messages.warning(request, 'This invoice is already fully paid.')
+        return redirect('core:invoice_detail', invoice_id=invoice_id)
+
+    form = RecordPaymentForm(request.POST or None)
+
+    if request.method == 'POST' and form.is_valid():
+        payment = form.save(commit=False)
+        payment.invoice = invoice
+        payment.received_by = request.user
+        payment.save()  # triggers auto-recompute of invoice status
+        messages.success(request, f'Payment of {payment.amount} recorded successfully.')
+        return redirect('core:invoice_detail', invoice_id=invoice_id)
+
+    return render(request, 'core/record_payment.html', {
+        'form': form,
+        'invoice': invoice,
+    })
+
+
+# ── Fee Structure CRUD ───────────────────────────────────────────────────────
+
+@accountant_required
+def fee_structure_list(request):
+    """List all fee structures for the school."""
+    structures = FeeStructure.objects.all()
+    return render(request, 'core/fee_structure_list.html', {'structures': structures})
+
+
+@accountant_required
+def fee_structure_create(request):
+    """Create a new fee structure."""
+    form = FeeStructureForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        fs = form.save(commit=False)
+        fs.school = get_request_school(request)
+        fs.save()
+        messages.success(request, f'Fee structure "{fs.name}" created.')
+        return redirect('core:fee_structure_list')
+    return render(request, 'core/fee_structure_form.html', {'form': form, 'is_edit': False})
+
+
+@accountant_required
+def fee_structure_edit(request, pk):
+    """Edit an existing fee structure."""
+    fs = get_object_or_404(FeeStructure, pk=pk)
+    form = FeeStructureForm(request.POST or None, instance=fs)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, f'Fee structure "{fs.name}" updated.')
+        return redirect('core:fee_structure_list')
+    return render(request, 'core/fee_structure_form.html', {'form': form, 'is_edit': True, 'object': fs})
+
+
+@accountant_required
+def fee_structure_delete(request, pk):
+    """Delete a fee structure (POST confirmation)."""
+    fs = get_object_or_404(FeeStructure, pk=pk)
+    if request.method == 'POST':
+        name = fs.name
+        fs.delete()
+        messages.success(request, f'Fee structure "{name}" deleted.')
+        return redirect('core:fee_structure_list')
+    return render(request, 'core/fee_structure_confirm_delete.html', {'object': fs})
+
+
+# ── Bulk Invoice Creation ────────────────────────────────────────────────────
+
+@accountant_required
+def bulk_invoice_create(request):
+    """Generate invoices for all students in a selected class/section."""
+    school = get_request_school(request)
+    form = BulkInvoiceForm(request.POST or None, school=school)
+
+    if request.method == 'POST' and form.is_valid():
+        classroom = form.cleaned_data.get('classroom')
+        section = form.cleaned_data.get('section')
+        fee_structure = form.cleaned_data['fee_structure']
+        amount_due = form.cleaned_data['amount_due']
+        due_date = form.cleaned_data['due_date']
+
+        # Filter students
+        students = Student.objects.all()
+        if section:
+            students = students.filter(section=section)
+        elif classroom:
+            students = students.filter(section__classroom=classroom)
+
+        created_count = 0
+        skipped_count = 0
+        for student in students:
+            # Skip if an identical invoice already exists for same fee & due date
+            exists = Invoice.objects.filter(
+                student=student,
+                fee_structure=fee_structure,
+                due_date=due_date,
+            ).exists()
+            if exists:
+                skipped_count += 1
+                continue
+            Invoice.objects.create(
+                school=school,
+                student=student,
+                fee_structure=fee_structure,
+                amount_due=amount_due,
+                due_date=due_date,
+                issued_by=request.user,
+            )
+            created_count += 1
+
+        messages.success(
+            request,
+            f'{created_count} invoice(s) created. {skipped_count} skipped (duplicates).'
+        )
+        return redirect('core:invoice_list')
+
+    return render(request, 'core/bulk_invoice.html', {'form': form})
+
+
+# ── Finance Report ───────────────────────────────────────────────────────────
+
+@accountant_required
+def finance_report(request):
+    """Income & expense report with date range filters and CSV export."""
+    today = datetime.date.today()
+    date_from = request.GET.get('date_from') or today.replace(day=1).isoformat()
+    date_to = request.GET.get('date_to') or today.isoformat()
+    export = request.GET.get('export') == 'csv'
+
+    try:
+        date_from_obj = datetime.date.fromisoformat(date_from)
+        date_to_obj = datetime.date.fromisoformat(date_to)
+    except ValueError:
+        date_from_obj = today.replace(day=1)
+        date_to_obj = today
+
+    payments = PaymentRecord.objects.filter(
+        payment_date__gte=date_from_obj,
+        payment_date__lte=date_to_obj,
+    ).select_related('invoice__student__user', 'invoice__fee_structure', 'received_by')
+
+    expenses = Expense.objects.filter(
+        expense_date__gte=date_from_obj,
+        expense_date__lte=date_to_obj,
+    )
+
+    total_income = payments.aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+    total_expenses = expenses.aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+    net = total_income - total_expenses
+
+    if export:
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = (
+            f'attachment; filename="finance_report_{date_from}_{date_to}.csv"'
+        )
+        writer = csv.writer(response)
+        writer.writerow(['Type', 'Date', 'Description', 'Amount', 'Method/Category'])
+        for p in payments:
+            writer.writerow([
+                'Income', p.payment_date,
+                f'Invoice #{p.invoice_id} – {p.invoice.student.user.get_full_name()}',
+                p.amount, p.get_payment_method_display(),
+            ])
+        for e in expenses:
+            writer.writerow([
+                'Expense', e.expense_date, e.title, e.amount, e.get_category_display(),
+            ])
+        writer.writerow([])
+        writer.writerow(['Total Income', '', '', total_income, ''])
+        writer.writerow(['Total Expenses', '', '', total_expenses, ''])
+        writer.writerow(['Net', '', '', net, ''])
+        return response
+
+    return render(request, 'core/finance_report.html', {
+        'payments': payments,
+        'expenses': expenses,
+        'total_income': total_income,
+        'total_expenses': total_expenses,
+        'net': net,
+        'date_from': date_from,
+        'date_to': date_to,
+    })
+
+
+# ── Expense CRUD ─────────────────────────────────────────────────────────────
+
+@accountant_required
+def expense_list(request):
+    """List all school expenses with optional category filter."""
+    category_filter = request.GET.get('category', '')
+    expenses = Expense.objects.select_related('recorded_by')
+    if category_filter:
+        expenses = expenses.filter(category=category_filter)
+
+    paginator = Paginator(expenses, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    total = expenses.aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+
+    return render(request, 'core/expense_list.html', {
+        'expenses': page_obj,
+        'page_obj': page_obj,
+        'total': total,
+        'category_filter': category_filter,
+        'category_choices': ExpenseCategoryChoices.choices,
+    })
+
+
+@accountant_required
+def expense_create(request):
+    """Create a new expense record."""
+    form = ExpenseForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        expense = form.save(commit=False)
+        expense.school = get_request_school(request)
+        expense.recorded_by = request.user
+        expense.save()
+        messages.success(request, f'Expense "{expense.title}" recorded.')
+        return redirect('core:expense_list')
+    return render(request, 'core/expense_form.html', {'form': form, 'is_edit': False})
+
+
+@accountant_required
+def expense_edit(request, pk):
+    """Edit an existing expense."""
+    expense = get_object_or_404(Expense, pk=pk)
+    form = ExpenseForm(request.POST or None, instance=expense)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, f'Expense "{expense.title}" updated.')
+        return redirect('core:expense_list')
+    return render(request, 'core/expense_form.html', {'form': form, 'is_edit': True, 'object': expense})
+
+
+@accountant_required
+def expense_delete(request, pk):
+    """Delete an expense record (POST confirmation)."""
+    expense = get_object_or_404(Expense, pk=pk)
+    if request.method == 'POST':
+        title = expense.title
+        expense.delete()
+        messages.success(request, f'Expense "{title}" deleted.')
+        return redirect('core:expense_list')
+    return render(request, 'core/expense_confirm_delete.html', {'object': expense})
+
+
+# ── Staff Salary Management ──────────────────────────────────────────────────
+
+@accountant_required
+def salary_list(request):
+    """List salary records with optional month filter."""
+    month_filter = request.GET.get('month', '')
+    salaries = StaffSalary.objects.select_related('staff_user')
+    if month_filter:
+        salaries = salaries.filter(month=month_filter)
+
+    paginator = Paginator(salaries, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    total_net = sum(s.net_salary for s in salaries)
+    paid_count = salaries.filter(is_paid=True).count()
+
+    return render(request, 'core/salary_list.html', {
+        'salaries': page_obj,
+        'page_obj': page_obj,
+        'total_net': total_net,
+        'paid_count': paid_count,
+        'month_filter': month_filter,
+    })
+
+
+@accountant_required
+def salary_create(request):
+    """Create a new salary record for a staff member."""
+    school = get_request_school(request)
+    form = StaffSalaryForm(request.POST or None, school=school)
+    if request.method == 'POST' and form.is_valid():
+        salary = form.save(commit=False)
+        salary.school = school
+        salary.save()
+        messages.success(request, f'Salary record for {salary.staff_user.get_full_name()} created.')
+        return redirect('core:salary_list')
+    return render(request, 'core/salary_form.html', {'form': form, 'is_edit': False})
+
+
+@accountant_required
+def salary_edit(request, pk):
+    """Edit an existing salary record."""
+    school = get_request_school(request)
+    salary = get_object_or_404(StaffSalary, pk=pk)
+    form = StaffSalaryForm(request.POST or None, instance=salary, school=school)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, f'Salary for {salary.staff_user.get_full_name()} updated.')
+        return redirect('core:salary_list')
+    return render(request, 'core/salary_form.html', {'form': form, 'is_edit': True, 'object': salary})
+
+
+@accountant_required
+def salary_delete(request, pk):
+    """Delete a salary record (POST confirmation)."""
+    salary = get_object_or_404(StaffSalary, pk=pk)
+    if request.method == 'POST':
+        name = salary.staff_user.get_full_name()
+        salary.delete()
+        messages.success(request, f'Salary record for {name} deleted.')
+        return redirect('core:salary_list')
+    return render(request, 'core/salary_confirm_delete.html', {'object': salary})
+
+
 # ── Academic Structure: Classes ──────────────────────────────────────────────
+
 
 @school_admin_required
 def classroom_list(request):
@@ -2004,4 +2365,142 @@ def profile_view(request):
     return render(request, 'core/profile.html', {
         'profile_form': profile_form,
         'password_form': password_form,
+    })
+
+
+# ── Homework Views ───────────────────────────────────────────────────────────
+
+@teacher_required
+def teacher_homework_list(request):
+    """List of homework assigned by the logged-in teacher."""
+    homeworks = Homework.objects.filter(teacher=request.user).select_related('section', 'subject')
+    
+    # Filter by section or subject if needed
+    section_id = request.GET.get('section')
+    if section_id:
+        homeworks = homeworks.filter(section_id=section_id)
+        
+    paginator = Paginator(homeworks, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    
+    sections = get_teacher_sections(request.user)
+    
+    return render(request, 'core/teacher_homework_list.html', {
+        'homeworks': page_obj,
+        'page_obj': page_obj,
+        'sections': sections,
+        'section_filter': section_id,
+    })
+
+
+@teacher_required
+def teacher_homework_create(request):
+    """Create a new homework assignment."""
+    form = HomeworkForm(request.POST or None, user=request.user)
+    if request.method == 'POST' and form.is_valid():
+        hw = form.save(commit=False)
+        hw.school = get_request_school(request)
+        hw.teacher = request.user
+        hw.save()
+        messages.success(request, 'Homework assigned successfully.')
+        return redirect('core:teacher_homework_list')
+        
+    return render(request, 'core/teacher_homework_form.html', {
+        'form': form,
+        'is_edit': False
+    })
+
+
+@teacher_required
+def teacher_homework_edit(request, pk):
+    """Edit an existing homework assignment."""
+    hw = get_object_or_404(Homework, pk=pk, teacher=request.user)
+    form = HomeworkForm(request.POST or None, instance=hw, user=request.user)
+    
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Homework updated successfully.')
+        return redirect('core:teacher_homework_list')
+        
+    return render(request, 'core/teacher_homework_form.html', {
+        'form': form,
+        'is_edit': True,
+        'object': hw
+    })
+
+
+@teacher_required
+def teacher_homework_delete(request, pk):
+    """Delete a homework assignment."""
+    hw = get_object_or_404(Homework, pk=pk, teacher=request.user)
+    if request.method == 'POST':
+        hw.delete()
+        messages.success(request, 'Homework deleted.')
+        return redirect('core:teacher_homework_list')
+    # Use inline JS confirmation on frontend, this is a fallback
+    return redirect('core:teacher_homework_list')
+
+
+@student_or_parent_required
+def student_homework_list(request, student_id=None):
+    """List homework for the student's section."""
+    user = request.user
+    if student_id:
+        target_student = get_object_or_404(Student, pk=student_id)
+        if not can_access_student_data(user, target_student):
+            raise Http404("Student record not found.")
+        student = target_student
+    else:
+        if user.primary_role == 'student':
+            student = getattr(user, 'student_profile', None)
+        elif user.primary_role == 'parent':
+            student = user.children.first()
+        else:
+            student = Student.objects.first()
+
+        if not student:
+            raise Http404("Student profile not found.")
+            
+    if not student.section:
+        homeworks = Homework.objects.none()
+    else:
+        homeworks = Homework.objects.filter(
+            section=student.section
+        ).select_related('teacher', 'subject')
+        
+    paginator = Paginator(homeworks, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    
+    return render(request, 'core/student_homework_list.html', {
+        'student': student,
+        'homeworks': page_obj,
+        'page_obj': page_obj,
+    })
+
+
+@student_or_parent_required
+def student_homework_detail(request, pk, student_id=None):
+    """View details of a specific homework assignment."""
+    user = request.user
+    if student_id:
+        target_student = get_object_or_404(Student, pk=student_id)
+        if not can_access_student_data(user, target_student):
+            raise Http404("Student record not found.")
+        student = target_student
+    else:
+        if user.primary_role == 'student':
+            student = getattr(user, 'student_profile', None)
+        elif user.primary_role == 'parent':
+            student = user.children.first()
+        else:
+            student = Student.objects.first()
+
+        if not student:
+            raise Http404("Student profile not found.")
+            
+    hw = get_object_or_404(Homework, pk=pk, section=student.section)
+    
+    return render(request, 'core/student_homework_detail.html', {
+        'student': student,
+        'homework': hw,
     })

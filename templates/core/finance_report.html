@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Finance Report — SchoolHub{% endblock %}
+{% block page_title %}Finance Report{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Filters -->
+    <form method="get" class="bg-white rounded-xl border border-gray-200 p-5">
+        <div class="flex flex-wrap items-end gap-4">
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">From</label>
+                <input type="date" name="date_from" value="{{ date_from }}"
+                       class="px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-800 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">To</label>
+                <input type="date" name="date_to" value="{{ date_to }}"
+                       class="px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-800 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition">
+            </div>
+            <button type="submit" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-lg transition-colors">
+                Apply
+            </button>
+            <a href="?date_from={{ date_from }}&date_to={{ date_to }}&export=csv"
+               class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition-colors inline-flex items-center gap-2">
+                <i data-lucide="download" class="w-4 h-4"></i> Export CSV
+            </a>
+        </div>
+    </form>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-6 text-white">
+            <p class="text-emerald-100 text-sm font-medium mb-1">Total Income</p>
+            <p class="text-3xl font-bold">{{ school_currency_symbol }}{{ total_income }}</p>
+            <p class="text-emerald-200 text-xs mt-1">{{ payments|length }} payment{{ payments|length|pluralize }}</p>
+        </div>
+        <div class="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-6 text-white">
+            <p class="text-red-100 text-sm font-medium mb-1">Total Expenses</p>
+            <p class="text-3xl font-bold">{{ school_currency_symbol }}{{ total_expenses }}</p>
+            <p class="text-red-200 text-xs mt-1">{{ expenses|length }} expense{{ expenses|length|pluralize }}</p>
+        </div>
+        <div class="bg-gradient-to-br {% if net >= 0 %}from-blue-500 to-blue-600{% else %}from-orange-500 to-orange-600{% endif %} rounded-2xl p-6 text-white">
+            <p class="text-blue-100 text-sm font-medium mb-1">Net</p>
+            <p class="text-3xl font-bold">{{ school_currency_symbol }}{{ net }}</p>
+            <p class="text-blue-200 text-xs mt-1">{% if net >= 0 %}Surplus{% else %}Deficit{% endif %}</p>
+        </div>
+    </div>
+
+    <!-- Income Table -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 class="text-base font-bold text-gray-900 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+                Income — Payments Received
+            </h3>
+            <span class="text-xs text-gray-400">{{ payments|length }} record{{ payments|length|pluralize }}</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Student</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Fee Type</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Method</th>
+                        <th class="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Amount</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for p in payments %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-3 text-sm text-gray-500">{{ p.payment_date|date:"M d, Y" }}</td>
+                        <td class="px-6 py-3 text-sm font-medium text-gray-800">{{ p.invoice.student.user.get_full_name }}</td>
+                        <td class="px-6 py-3 text-sm text-gray-500">{{ p.invoice.fee_structure.name }}</td>
+                        <td class="px-6 py-3 text-sm text-gray-500">{{ p.get_payment_method_display }}</td>
+                        <td class="px-6 py-3 text-sm font-bold text-emerald-700 text-right">{{ school_currency_symbol }}{{ p.amount }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="px-6 py-8 text-center text-sm text-gray-400">No payments in this period.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Expenses Table -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 class="text-base font-bold text-gray-900 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></span>
+                Expenses
+            </h3>
+            <span class="text-xs text-gray-400">{{ expenses|length }} record{{ expenses|length|pluralize }}</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Title</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Category</th>
+                        <th class="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Amount</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for e in expenses %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-3 text-sm text-gray-500">{{ e.expense_date|date:"M d, Y" }}</td>
+                        <td class="px-6 py-3 text-sm font-medium text-gray-800">{{ e.title }}</td>
+                        <td class="px-6 py-3"><span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">{{ e.get_category_display }}</span></td>
+                        <td class="px-6 py-3 text-sm font-bold text-red-600 text-right">{{ school_currency_symbol }}{{ e.amount }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="px-6 py-8 text-center text-sm text-gray-400">No expenses in this period.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

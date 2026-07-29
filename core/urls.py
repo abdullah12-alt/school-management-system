@@ -106,12 +106,25 @@ urlpatterns = [
     path('teacher/syllabus/<int:syllabus_id>/', views.teacher_syllabus_detail, name='teacher_syllabus_detail'),
     path('teacher/syllabus/<int:syllabus_id>/edit/', views.teacher_syllabus_edit, name='teacher_syllabus_edit'),
     path('teacher/syllabus/units/<int:unit_id>/delete/', views.teacher_syllabus_unit_delete, name='teacher_syllabus_unit_delete'),
+    
+    # Teacher Homework
+    path('teacher/homework/', views.teacher_homework_list, name='teacher_homework_list'),
+    path('teacher/homework/create/', views.teacher_homework_create, name='teacher_homework_create'),
+    path('teacher/homework/<int:pk>/edit/', views.teacher_homework_edit, name='teacher_homework_edit'),
+    path('teacher/homework/<int:pk>/delete/', views.teacher_homework_delete, name='teacher_homework_delete'),
+
     path('profile/', views.profile_view, name='profile'),
 
     # Attendance
     path('attendance/mark/', views.attendance_mark, name='attendance_mark'),
     path('attendance/history/', views.attendance_history, name='attendance_history'),
     path('attendance/history/<int:student_id>/', views.attendance_history, name='attendance_history_student'),
+
+    # Student Homework
+    path('homework/', views.student_homework_list, name='student_homework_list'),
+    path('homework/student/<int:student_id>/', views.student_homework_list, name='student_homework_list_student'),
+    path('homework/<int:pk>/', views.student_homework_detail, name='student_homework_detail'),
+    path('homework/<int:pk>/student/<int:student_id>/', views.student_homework_detail, name='student_homework_detail_student'),
 
     # Exams & Grading
     path('exams/', views.exam_list, name='exam_list'),
@@ -123,6 +136,30 @@ urlpatterns = [
     # Fees & Invoices
     path('finance/invoices/', views.invoice_list, name='invoice_list'),
     path('finance/invoices/create/', views.invoice_create, name='invoice_create'),
+    path('finance/invoices/<int:invoice_id>/', views.invoice_detail, name='invoice_detail'),
+    path('finance/invoices/<int:invoice_id>/payment/', views.record_payment, name='record_payment'),
+    path('finance/invoices/bulk/', views.bulk_invoice_create, name='bulk_invoice_create'),
     path('finance/my-invoices/', views.my_invoices, name='my_invoices'),
     path('finance/my-invoices/<int:student_id>/', views.my_invoices, name='my_invoices_student'),
+
+    # Fee Structures
+    path('finance/fee-structures/', views.fee_structure_list, name='fee_structure_list'),
+    path('finance/fee-structures/create/', views.fee_structure_create, name='fee_structure_create'),
+    path('finance/fee-structures/<int:pk>/edit/', views.fee_structure_edit, name='fee_structure_edit'),
+    path('finance/fee-structures/<int:pk>/delete/', views.fee_structure_delete, name='fee_structure_delete'),
+
+    # Finance Report
+    path('finance/report/', views.finance_report, name='finance_report'),
+
+    # Expenses
+    path('finance/expenses/', views.expense_list, name='expense_list'),
+    path('finance/expenses/create/', views.expense_create, name='expense_create'),
+    path('finance/expenses/<int:pk>/edit/', views.expense_edit, name='expense_edit'),
+    path('finance/expenses/<int:pk>/delete/', views.expense_delete, name='expense_delete'),
+
+    # Salaries
+    path('finance/salaries/', views.salary_list, name='salary_list'),
+    path('finance/salaries/create/', views.salary_create, name='salary_create'),
+    path('finance/salaries/<int:pk>/edit/', views.salary_edit, name='salary_edit'),
+    path('finance/salaries/<int:pk>/delete/', views.salary_delete, name='salary_delete'),
 ]

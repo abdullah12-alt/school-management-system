@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}{{ homework.title }} — Homework Diary{% endblock %}
+{% block page_title %}Homework Details{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl">
+    <div class="mb-4">
+        {% if request.user.primary_role == 'parent' %}
+        <a href="{% url 'core:student_homework_list_student' student.id %}" class="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-gray-900 transition-colors">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Homework List
+        </a>
+        {% else %}
+        <a href="{% url 'core:student_homework_list' %}" class="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-gray-900 transition-colors">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Homework List
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+        <!-- Header -->
+        <div class="px-8 py-6 border-b border-gray-100 bg-gray-50/50">
+            <div class="flex items-center gap-3 mb-3">
+                <span class="px-3 py-1 rounded-full text-xs font-bold bg-primary-100 text-primary-800 border border-primary-200">
+                    {{ homework.subject.name }}
+                </span>
+                
+                {% now "Y-m-d" as current_date %}
+                {% with hw_due_str=homework.due_date|date:"Y-m-d" %}
+                    {% if hw_due_str < current_date %}
+                    <span class="px-3 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-800 uppercase tracking-wider border border-red-200">Past Due</span>
+                    {% elif hw_due_str == current_date %}
+                    <span class="px-3 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 uppercase tracking-wider border border-amber-200">Due Today</span>
+                    {% else %}
+                    <span class="px-3 py-1 rounded-full text-[10px] font-bold bg-gray-200 text-gray-700 uppercase tracking-wider border border-gray-300">Upcoming</span>
+                    {% endif %}
+                {% endwith %}
+            </div>
+            
+            <h1 class="text-2xl font-black text-gray-900 mb-4">{{ homework.title }}</h1>
+            
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div>
+                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Due Date</p>
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="calendar" class="w-4 h-4 text-primary-500"></i>
+                        <p class="text-sm font-semibold text-gray-900">{{ homework.due_date|date:"l, M d, Y" }}</p>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Assigned By</p>
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="user" class="w-4 h-4 text-gray-400"></i>
+                        <p class="text-sm font-medium text-gray-700">{{ homework.teacher.get_full_name }}</p>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Assigned On</p>
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="clock" class="w-4 h-4 text-gray-400"></i>
+                        <p class="text-sm font-medium text-gray-700">{{ homework.created_at|date:"M d, Y" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Content -->
+        <div class="p-8">
+            <h3 class="text-sm font-bold text-gray-900 mb-4">Instructions</h3>
+            <div class="prose prose-sm prose-primary max-w-none text-gray-700 whitespace-pre-wrap">{{ homework.description }}</div>
+        </div>
+    </div>
+</div>
+{% endblock %}

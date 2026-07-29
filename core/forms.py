@@ -8,7 +8,9 @@ from .models import (
     School, User, Role, UserRole, PrimaryRoleChoices, STAFF_ROLES,
     ClassRoom, Section, Subject, Exam, Student, FeeStructure, Invoice,
     AttendanceStatusChoices, PlanChoices, SubscriptionPlan,
-    Syllabus, SyllabusUnit, Timetable,
+    Syllabus, SyllabusUnit, Timetable, Homework,
+    PaymentRecord, Expense, StaffSalary,
+    PaymentMethodChoices, ExpenseCategoryChoices,
 )
 
 
@@ -1025,3 +1027,264 @@ class ChangePasswordForm(forms.Form):
         self.user.set_password(self.cleaned_data['new_password'])
         self.user.save()
         return self.user
+
+
+# ── Finance: Fee Structure Form ─────────────────────────────────────────────
+
+class FeeStructureForm(forms.ModelForm):
+    """Create or edit a fee structure (fee type and default amount)."""
+
+    class Meta:
+        model = FeeStructure
+        fields = ['name', 'amount', 'description']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': 'e.g., Tuition Fee',
+                'id': 'id_fs_name',
+            }),
+            'amount': forms.NumberInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': '0.00',
+                'step': '0.01',
+                'id': 'id_fs_amount',
+            }),
+            'description': forms.Textarea(attrs={
+                'class': INPUT_CSS + ' resize-none',
+                'placeholder': 'Optional description...',
+                'rows': 3,
+                'id': 'id_fs_description',
+            }),
+        }
+
+
+# ── Finance: Record Payment Form ─────────────────────────────────────────────
+
+class RecordPaymentForm(forms.ModelForm):
+    """Record a payment against an invoice."""
+
+    class Meta:
+        model = PaymentRecord
+        fields = ['amount', 'payment_date', 'payment_method', 'notes']
+        widgets = {
+            'amount': forms.NumberInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': '0.00',
+                'step': '0.01',
+                'id': 'id_payment_amount',
+            }),
+            'payment_date': forms.DateInput(attrs={
+                'class': INPUT_CSS,
+                'type': 'date',
+                'id': 'id_payment_date',
+            }),
+            'payment_method': forms.Select(attrs={
+                'class': SELECT_CSS,
+                'id': 'id_payment_method',
+            }),
+            'notes': forms.Textarea(attrs={
+                'class': INPUT_CSS + ' resize-none',
+                'placeholder': 'Optional notes...',
+                'rows': 2,
+                'id': 'id_payment_notes',
+            }),
+        }
+
+    def clean_amount(self):
+        amount = self.cleaned_data.get('amount')
+        if amount is not None and amount <= 0:
+            raise forms.ValidationError('Payment amount must be greater than zero.')
+        return amount
+
+
+# ── Finance: Bulk Invoice Form ───────────────────────────────────────────────
+
+class BulkInvoiceForm(forms.Form):
+    """Generate invoices for all students in a classroom/section."""
+    classroom = forms.ModelChoiceField(
+        queryset=ClassRoom.objects.none(),
+        required=False,
+        empty_label='All Classrooms',
+        widget=forms.Select(attrs={'class': SELECT_CSS, 'id': 'id_bi_classroom'}),
+    )
+    section = forms.ModelChoiceField(
+        queryset=Section.objects.none(),
+        required=False,
+        empty_label='All Sections',
+        widget=forms.Select(attrs={'class': SELECT_CSS, 'id': 'id_bi_section'}),
+    )
+    fee_structure = forms.ModelChoiceField(
+        queryset=FeeStructure.objects.none(),
+        widget=forms.Select(attrs={'class': SELECT_CSS, 'id': 'id_bi_fee_structure'}),
+    )
+    amount_due = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={
+            'class': INPUT_CSS,
+            'placeholder': '0.00',
+            'step': '0.01',
+            'id': 'id_bi_amount_due',
+        }),
+    )
+    due_date = forms.DateField(
+        widget=forms.DateInput(attrs={
+            'class': INPUT_CSS,
+            'type': 'date',
+            'id': 'id_bi_due_date',
+        }),
+    )
+
+    def __init__(self, *args, school=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if school:
+            self.fields['classroom'].queryset = ClassRoom.objects.all()
+            self.fields['section'].queryset = Section.objects.select_related('classroom').all()
+            self.fields['fee_structure'].queryset = FeeStructure.objects.all()
+
+    def clean(self):
+        cleaned = super().clean()
+        classroom = cleaned.get('classroom')
+        section = cleaned.get('section')
+        if section and classroom and section.classroom != classroom:
+            self.add_error('section', 'Selected section does not belong to the selected classroom.')
+        return cleaned
+
+
+# ── Finance: Expense Form ────────────────────────────────────────────────────
+
+class ExpenseForm(forms.ModelForm):
+    """Create or edit a school expense."""
+
+    class Meta:
+        model = Expense
+        fields = ['title', 'category', 'amount', 'expense_date', 'description']
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': 'e.g., Electricity Bill',
+                'id': 'id_exp_title',
+            }),
+            'category': forms.Select(attrs={
+                'class': SELECT_CSS,
+                'id': 'id_exp_category',
+            }),
+            'amount': forms.NumberInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': '0.00',
+                'step': '0.01',
+                'id': 'id_exp_amount',
+            }),
+            'expense_date': forms.DateInput(attrs={
+                'class': INPUT_CSS,
+                'type': 'date',
+                'id': 'id_exp_date',
+            }),
+            'description': forms.Textarea(attrs={
+                'class': INPUT_CSS + ' resize-none',
+                'placeholder': 'Additional details...',
+                'rows': 3,
+                'id': 'id_exp_description',
+            }),
+        }
+
+
+# ── Finance: Staff Salary Form ─────────────────────────────────────────────────
+
+class StaffSalaryForm(forms.ModelForm):
+    """Create or edit a staff salary record."""
+
+    class Meta:
+        model = StaffSalary
+        fields = ['staff_user', 'month', 'base_salary', 'bonus', 'deductions', 'is_paid', 'paid_date', 'notes']
+        widgets = {
+            'staff_user': forms.Select(attrs={'class': SELECT_CSS, 'id': 'id_sal_staff'}),
+            'month': forms.TextInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': 'YYYY-MM e.g. 2026-07',
+                'id': 'id_sal_month',
+            }),
+            'base_salary': forms.NumberInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': '0.00',
+                'step': '0.01',
+                'id': 'id_sal_base',
+            }),
+            'bonus': forms.NumberInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': '0.00',
+                'step': '0.01',
+                'id': 'id_sal_bonus',
+            }),
+            'deductions': forms.NumberInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': '0.00',
+                'step': '0.01',
+                'id': 'id_sal_deductions',
+            }),
+            'is_paid': forms.CheckboxInput(attrs={
+                'class': CHECKBOX_CSS,
+                'id': 'id_sal_is_paid',
+            }),
+            'paid_date': forms.DateInput(attrs={
+                'class': INPUT_CSS,
+                'type': 'date',
+                'id': 'id_sal_paid_date',
+            }),
+            'notes': forms.Textarea(attrs={
+                'class': INPUT_CSS + ' resize-none',
+                'placeholder': 'Optional notes...',
+                'rows': 2,
+                'id': 'id_sal_notes',
+            }),
+        }
+
+    def __init__(self, *args, school=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['paid_date'].required = False
+        self.fields['notes'].required = False
+        if school:
+            self.fields['staff_user'].queryset = User.objects.filter(
+                school=school,
+                primary_role__in=['teacher', 'staff', 'accountant', 'librarian'],
+                is_active=True,
+            )
+
+
+class HomeworkForm(forms.ModelForm):
+    """Form for teachers to assign daily homework."""
+    class Meta:
+        model = Homework
+        fields = ['section', 'subject', 'title', 'due_date', 'description']
+        widgets = {
+            'section': forms.Select(attrs={'class': INPUT_CSS}),
+            'subject': forms.Select(attrs={'class': INPUT_CSS}),
+            'title': forms.TextInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': 'e.g. Read Chapter 4',
+            }),
+            'due_date': forms.DateInput(attrs={
+                'class': INPUT_CSS,
+                'type': 'date',
+            }),
+            'description': forms.Textarea(attrs={
+                'class': INPUT_CSS,
+                'placeholder': 'Detailed instructions for the homework...',
+                'rows': 4,
+            }),
+        }
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user and user.primary_role == 'teacher':
+            # Limit to sections and subjects the teacher is assigned to in timetable
+            self.fields['section'].queryset = Section.objects.filter(
+                timetables__teacher=user
+            ).distinct()
+            self.fields['subject'].queryset = Subject.objects.filter(
+                timetables__teacher=user
+            ).distinct()
+        elif user:
+            # If admin or other, limit to the school
+            self.fields['section'].queryset = Section.objects.filter(classroom__school=user.school)
+            self.fields['subject'].queryset = Subject.objects.filter(school=user.school)

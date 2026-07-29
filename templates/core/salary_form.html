@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}{% if is_edit %}Edit Salary{% else %}Add Salary Record{% endif %} — SchoolHub{% endblock %}
+{% block page_title %}{% if is_edit %}Edit Salary Record{% else %}Add Salary Record{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-lg">
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100">
+            <h3 class="text-base font-bold text-gray-900">{% if is_edit %}Edit: {{ object.staff_user.get_full_name }} — {{ object.month }}{% else %}New Salary Record{% endif %}</h3>
+        </div>
+        <form method="post" class="p-6 space-y-5">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                    <label for="id_sal_staff" class="block text-sm font-semibold text-gray-700 mb-1.5">Staff Member *</label>
+                    {{ form.staff_user }}
+                    {% if form.staff_user.errors %}<p class="mt-1 text-xs text-red-600">{{ form.staff_user.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="id_sal_month" class="block text-sm font-semibold text-gray-700 mb-1.5">Month (YYYY-MM) *</label>
+                    {{ form.month }}
+                    {% if form.month.errors %}<p class="mt-1 text-xs text-red-600">{{ form.month.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                <div>
+                    <label for="id_sal_base" class="block text-sm font-semibold text-gray-700 mb-1.5">Base Salary *</label>
+                    {{ form.base_salary }}
+                </div>
+                <div>
+                    <label for="id_sal_bonus" class="block text-sm font-semibold text-gray-700 mb-1.5">Bonus</label>
+                    {{ form.bonus }}
+                </div>
+                <div>
+                    <label for="id_sal_deductions" class="block text-sm font-semibold text-gray-700 mb-1.5">Deductions</label>
+                    {{ form.deductions }}
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div class="flex items-center gap-3 pt-1">
+                    {{ form.is_paid }}
+                    <label for="id_sal_is_paid" class="text-sm font-semibold text-gray-700">Mark as Paid</label>
+                </div>
+                <div>
+                    <label for="id_sal_paid_date" class="block text-sm font-semibold text-gray-700 mb-1.5">Payment Date <span class="text-gray-400 font-normal">(optional)</span></label>
+                    {{ form.paid_date }}
+                </div>
+            </div>
+
+            <div>
+                <label for="id_sal_notes" class="block text-sm font-semibold text-gray-700 mb-1.5">Notes <span class="text-gray-400 font-normal">(optional)</span></label>
+                {{ form.notes }}
+            </div>
+
+            <div class="flex items-center gap-3 pt-4 border-t border-gray-100">
+                <button type="submit" class="px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold text-sm rounded-xl transition-colors">
+                    {% if is_edit %}Save Changes{% else %}Create Record{% endif %}
+                </button>
+                <a href="{% url 'core:salary_list' %}" class="px-5 py-2.5 text-gray-600 hover:bg-gray-100 font-semibold text-sm rounded-xl transition-colors">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

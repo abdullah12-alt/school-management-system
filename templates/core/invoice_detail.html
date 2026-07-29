@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Invoice #{{ invoice.id }} — SchoolHub{% endblock %}
+{% block page_title %}Invoice #{{ invoice.id }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-4xl">
+
+    <!-- Back -->
+    <a href="{% url 'core:invoice_list' %}" class="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-primary-600 transition-colors">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Invoices
+    </a>
+
+    <!-- Invoice Header Card -->
+    <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+        <div class="px-6 py-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+                <h2 class="text-xl font-bold text-gray-900">Invoice #{{ invoice.id }}</h2>
+                <p class="text-sm text-gray-500 mt-0.5">Issued {{ invoice.created_at|date:"M d, Y" }}{% if invoice.issued_by %} by {{ invoice.issued_by.get_full_name }}{% endif %}</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="px-3 py-1.5 rounded-full text-sm font-bold
+                    {% if invoice.status == 'paid' %}bg-emerald-100 text-emerald-700
+                    {% elif invoice.status == 'partial' %}bg-amber-100 text-amber-700
+                    {% else %}bg-red-100 text-red-700{% endif %}">
+                    {{ invoice.get_status_display }}
+                </span>
+                {% if invoice.is_overdue %}
+                <span class="px-3 py-1.5 rounded-full bg-red-50 border border-red-200 text-xs font-bold text-red-700">OVERDUE</span>
+                {% endif %}
+                {% if invoice.status != 'paid' %}
+                <a href="{% url 'core:record_payment' invoice.id %}"
+                   class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors shadow-sm">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                    Record Payment
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Student & Fee Info -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 p-6">
+            <div class="space-y-1">
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Student</p>
+                <p class="text-base font-bold text-gray-900">{{ invoice.student.user.get_full_name }}</p>
+                <p class="text-sm text-gray-500">Admission #{{ invoice.student.admission_number }}</p>
+            </div>
+            <div class="space-y-1">
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Fee Type</p>
+                <p class="text-base font-bold text-gray-900">{{ invoice.fee_structure.name }}</p>
+                <p class="text-sm text-gray-500">{{ invoice.fee_structure.description|default:"—" }}</p>
+            </div>
+        </div>
+
+        <!-- Financials -->
+        <div class="border-t border-gray-100 bg-gray-50 px-6 py-5">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-6">
+                <div>
+                    <p class="text-xs text-gray-500 font-medium mb-1">Amount Due</p>
+                    <p class="text-xl font-bold text-gray-900">{{ school_currency_symbol }}{{ invoice.amount_due }}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 font-medium mb-1">Discount</p>
+                    <p class="text-xl font-bold text-amber-600">-{{ school_currency_symbol }}{{ invoice.discount }}</p>
+                    {% if invoice.discount_reason %}<p class="text-xs text-gray-400">{{ invoice.discount_reason }}</p>{% endif %}
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 font-medium mb-1">Amount Paid</p>
+                    <p class="text-xl font-bold text-emerald-600">{{ school_currency_symbol }}{{ invoice.amount_paid }}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 font-medium mb-1">Balance Remaining</p>
+                    <p class="text-xl font-bold {% if invoice.remaining_balance > 0 %}text-red-600{% else %}text-emerald-600{% endif %}">
+                        {{ school_currency_symbol }}{{ invoice.remaining_balance }}
+                    </p>
+                </div>
+            </div>
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <p class="text-sm text-gray-500">Due Date: <strong class="{% if invoice.is_overdue %}text-red-600{% else %}text-gray-900{% endif %}">{{ invoice.due_date|date:"F d, Y" }}</strong></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment History -->
+    <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 class="text-base font-bold text-gray-900">Payment History</h3>
+            <span class="text-xs text-gray-400">{{ payments|length }} record{{ payments|length|pluralize }}</span>
+        </div>
+        <div class="divide-y divide-gray-100">
+            {% for payment in payments %}
+            <div class="flex items-center justify-between px-6 py-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-gray-900">{{ school_currency_symbol }}{{ payment.amount }} — {{ payment.get_payment_method_display }}</p>
+                        <p class="text-xs text-gray-500">
+                            {{ payment.payment_date|date:"M d, Y" }}
+                            {% if payment.received_by %} · Received by {{ payment.received_by.get_full_name }}{% endif %}
+                            {% if payment.notes %} · {{ payment.notes }}{% endif %}
+                        </p>
+                    </div>
+                </div>
+                <span class="text-base font-bold text-emerald-600 flex-shrink-0">+{{ school_currency_symbol }}{{ payment.amount }}</span>
+            </div>
+            {% empty %}
+            <div class="px-6 py-12 text-center">
+                <i data-lucide="banknote" class="w-10 h-10 text-gray-300 mx-auto mb-3"></i>
+                <p class="text-sm font-semibold text-gray-600">No payments recorded yet</p>
+                {% if invoice.status != 'paid' %}
+                <a href="{% url 'core:record_payment' invoice.id %}" class="mt-3 inline-flex items-center gap-2 text-primary-600 text-sm font-semibold hover:underline">
+                    Record First Payment →
+                </a>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}

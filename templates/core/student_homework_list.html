@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Homework Diary — SchoolHub{% endblock %}
+{% block page_title %}Homework Diary{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    {% if request.user.primary_role == 'parent' %}
+    <!-- Parent Child Selector Header -->
+    <div class="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
+        <div>
+            <h2 class="text-lg font-bold text-gray-900">Homework for {{ student.user.get_full_name }}</h2>
+            <p class="text-sm text-gray-500">{{ student.section.classroom.name }} - {{ student.section.name }}</p>
+        </div>
+        {% if request.user.children.count > 1 %}
+        <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-500 font-medium">Viewing child:</span>
+            <div class="flex bg-gray-100 rounded-lg p-1">
+                {% for child in request.user.children.all %}
+                <a href="{% url 'core:student_homework_list_student' child.id %}" 
+                   class="px-3 py-1.5 text-xs font-semibold rounded-md transition-colors {% if child.id == student.id %}bg-white text-gray-900 shadow-sm{% else %}text-gray-500 hover:text-gray-700{% endif %}">
+                    {{ child.user.first_name }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Homework Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for hw in homeworks %}
+        {% now "Y-m-d" as current_date %}
+        {% with hw_due_str=hw.due_date|date:"Y-m-d" %}
+        
+        <div class="bg-white rounded-xl border border-gray-200 hover:border-primary-300 transition-colors overflow-hidden flex flex-col group shadow-sm">
+            
+            <div class="p-5 flex-1">
+                <div class="flex items-start justify-between mb-3">
+                    <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-primary-50 text-primary-700 border border-primary-100">
+                        {{ hw.subject.name }}
+                    </span>
+                    
+                    {% if hw_due_str < current_date %}
+                    <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-50 text-red-700 uppercase tracking-wider">Past Due</span>
+                    {% elif hw_due_str == current_date %}
+                    <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 uppercase tracking-wider">Due Today</span>
+                    {% else %}
+                    <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600 uppercase tracking-wider">Upcoming</span>
+                    {% endif %}
+                </div>
+                
+                <h3 class="text-base font-bold text-gray-900 mb-2 line-clamp-2">{{ hw.title }}</h3>
+                <p class="text-sm text-gray-500 line-clamp-3 mb-4">{{ hw.description }}</p>
+                
+                <div class="flex items-center gap-2 mt-auto">
+                    <i data-lucide="user" class="w-4 h-4 text-gray-400"></i>
+                    <span class="text-xs font-medium text-gray-600">Assigned by {{ hw.teacher.get_full_name }}</span>
+                </div>
+            </div>
+            
+            <div class="px-5 py-3 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between group-hover:bg-primary-50/30 transition-colors">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="calendar" class="w-4 h-4 {% if hw_due_str < current_date %}text-red-500{% elif hw_due_str == current_date %}text-amber-500{% else %}text-primary-500{% endif %}"></i>
+                    <span class="text-sm font-semibold {% if hw_due_str < current_date %}text-red-600{% elif hw_due_str == current_date %}text-amber-600{% else %}text-primary-700{% endif %}">
+                        Due: {{ hw.due_date|date:"M d, Y" }}
+                    </span>
+                </div>
+                
+                {% if request.user.primary_role == 'parent' %}
+                <a href="{% url 'core:student_homework_detail_student' hw.id student.id %}" class="text-sm font-bold text-primary-600 hover:text-primary-700 flex items-center gap-1">
+                    View <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                </a>
+                {% else %}
+                <a href="{% url 'core:student_homework_detail' hw.id %}" class="text-sm font-bold text-primary-600 hover:text-primary-700 flex items-center gap-1">
+                    View <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                </a>
+                {% endif %}
+            </div>
+            
+        </div>
+        
+        {% endwith %}
+        {% empty %}
+        
+        <div class="col-span-full">
+            <div class="bg-white rounded-xl border border-gray-200 p-12 flex flex-col items-center justify-center text-center">
+                <div class="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mb-4 border border-gray-100">
+                    <i data-lucide="party-popper" class="w-8 h-8 text-primary-400"></i>
+                </div>
+                <h3 class="text-base font-bold text-gray-900 mb-1">No homework assigned!</h3>
+                <p class="text-sm text-gray-500">You're all caught up. There is no active homework for your section.</p>
+            </div>
+        </div>
+        
+        {% endfor %}
+    </div>
+
+    {% if page_obj and page_obj.has_other_pages %}
+    <div class="px-6 py-4 flex items-center justify-between">
+        <span class="text-xs text-gray-500">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        <div class="flex items-center gap-2">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 bg-white hover:bg-gray-50 rounded-lg text-xs font-semibold text-gray-600 border border-gray-200 transition-colors">Previous</a>
+            {% endif %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1.5 bg-white hover:bg-gray-50 rounded-lg text-xs font-semibold text-gray-600 border border-gray-200 transition-colors">Next</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
