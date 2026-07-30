@@ -11,6 +11,7 @@ from .models import (
     Syllabus, SyllabusUnit, Timetable, Homework,
     PaymentRecord, Expense, StaffSalary,
     PaymentMethodChoices, ExpenseCategoryChoices,
+    Announcement, AnnouncementPriorityChoices, AnnouncementAudienceChoices,
 )
 
 
@@ -1288,3 +1289,64 @@ class HomeworkForm(forms.ModelForm):
             # If admin or other, limit to the school
             self.fields['section'].queryset = Section.objects.filter(classroom__school=user.school)
             self.fields['subject'].queryset = Subject.objects.filter(school=user.school)
+
+
+class AnnouncementForm(forms.ModelForm):
+    """Form for creating / editing school announcements."""
+    class Meta:
+        model = Announcement
+        fields = ['title', 'body', 'priority', 'audience', 'section', 'is_pinned', 'expires_at']
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'class': INPUT_CSS,
+                'placeholder': 'e.g. Midterm Exams Schedule Released',
+                'id': 'id_title',
+            }),
+            'body': forms.Textarea(attrs={
+                'class': INPUT_CSS,
+                'placeholder': 'Write your announcement details here...',
+                'rows': 5,
+                'id': 'id_body',
+            }),
+            'priority': forms.Select(attrs={
+                'class': SELECT_CSS,
+                'id': 'id_priority',
+            }),
+            'audience': forms.Select(attrs={
+                'class': SELECT_CSS,
+                'id': 'id_audience',
+            }),
+            'section': forms.Select(attrs={
+                'class': SELECT_CSS,
+                'id': 'id_section',
+            }),
+            'is_pinned': forms.CheckboxInput(attrs={
+                'class': CHECKBOX_CSS,
+                'id': 'id_is_pinned',
+            }),
+            'expires_at': forms.DateTimeInput(attrs={
+                'class': INPUT_CSS,
+                'type': 'datetime-local',
+                'id': 'id_expires_at',
+            }),
+        }
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['section'].required = False
+        self.fields['expires_at'].required = False
+        if user and hasattr(user, 'school') and user.school:
+            self.fields['section'].queryset = Section.objects.filter(
+                classroom__school=user.school
+            ).select_related('classroom')
+        self.fields['section'].empty_label = '— Select section —'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        audience = cleaned_data.get('audience')
+        section = cleaned_data.get('section')
+        if audience == AnnouncementAudienceChoices.SECTION and not section:
+            self.add_error('section', 'You must select a section when audience is "Specific Section".')
+        if audience != AnnouncementAudienceChoices.SECTION:
+            cleaned_data['section'] = None
+        return cleaned_data

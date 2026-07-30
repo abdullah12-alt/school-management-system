@@ -1060,3 +1060,106 @@ class SyllabusUnit(models.Model):
 
     def __str__(self):
         return f"{self.order}. {self.title}"
+
+
+# ── Announcement Choices ─────────────────────────────────────────────────────
+
+class AnnouncementPriorityChoices(models.TextChoices):
+    NORMAL = 'normal', 'Normal'
+    IMPORTANT = 'important', 'Important'
+    URGENT = 'urgent', 'Urgent'
+
+
+class AnnouncementAudienceChoices(models.TextChoices):
+    ALL = 'all', 'Entire School'
+    STUDENTS = 'students', 'All Students'
+    PARENTS = 'parents', 'All Parents'
+    TEACHERS = 'teachers', 'All Teachers'
+    STAFF = 'staff', 'All Staff'
+    SECTION = 'section', 'Specific Section'
+
+
+# ── Announcements ─────────────────────────────────────────────────────────────
+
+class Announcement(TenantModel):
+    """
+    School-wide or audience-targeted announcement.
+
+    Audience filtering:
+        - 'all'      → visible to every user in the school
+        - 'students' → users with primary_role='student'
+        - 'parents'  → users with primary_role='parent'
+        - 'teachers' → users with primary_role='teacher'
+        - 'staff'    → users with primary_role in ('staff', 'accountant', 'librarian')
+        - 'section'  → students in that section + their parents + teachers of that section
+    """
+    title = models.CharField(max_length=200)
+    body = models.TextField()
+    priority = models.CharField(
+        max_length=20,
+        choices=AnnouncementPriorityChoices.choices,
+        default=AnnouncementPriorityChoices.NORMAL,
+    )
+    audience = models.CharField(
+        max_length=20,
+        choices=AnnouncementAudienceChoices.choices,
+        default=AnnouncementAudienceChoices.ALL,
+    )
+    section = models.ForeignKey(
+        Section,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='announcements',
+        help_text='Required only when audience is "Specific Section".',
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='authored_announcements',
+    )
+    is_pinned = models.BooleanField(
+        default=False,
+        help_text='Pinned announcements always appear at the top.',
+    )
+    expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Auto-hide after this date/time. Leave blank for no expiry.',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-is_pinned', '-created_at']
+
+    def __str__(self):
+        return f"{self.title} ({self.get_priority_display()})"
+
+    @property
+    def is_expired(self):
+        if self.expires_at is None:
+            return False
+        from django.utils import timezone
+        return timezone.now() > self.expires_at
+
+
+class AnnouncementReadReceipt(models.Model):
+    """Tracks which users have read an announcement."""
+    announcement = models.ForeignKey(
+        Announcement,
+        on_delete=models.CASCADE,
+        related_name='read_receipts',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='announcement_reads',
+    )
+    read_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['announcement', 'user']
+        ordering = ['-read_at']
+
+    def __str__(self):
+        return f"{self.user.get_full_name()} read '{self.announcement.title}'"

@@ -10,6 +10,7 @@ from .models import (
     StudentAttendance, Exam, ExamResult, FeeStructure, Invoice,
     PaymentRecord, Expense, StaffSalary,
     Syllabus, SyllabusUnit, Homework,
+    Announcement, AnnouncementReadReceipt,
 )
 
 
@@ -229,3 +230,19 @@ class HomeworkAdmin(ScopedAdminMixin, admin.ModelAdmin):
     list_filter = ['due_date', 'school', 'subject']
     search_fields = ['title', 'description', 'teacher__first_name', 'teacher__last_name']
     readonly_fields = ['created_at']
+
+
+@admin.register(Announcement)
+class AnnouncementAdmin(ScopedAdminMixin, admin.ModelAdmin):
+    list_display = ['title', 'priority', 'audience', 'author', 'is_pinned', 'created_at', 'school']
+    list_filter = ['priority', 'audience', 'is_pinned', 'school']
+    search_fields = ['title', 'body', 'author__first_name', 'author__last_name']
+    readonly_fields = ['created_at']
+
+
+@admin.register(AnnouncementReadReceipt)
+class AnnouncementReadReceiptAdmin(admin.ModelAdmin):
+    list_display = ['announcement', 'user', 'read_at']
+    list_filter = ['read_at']
+    search_fields = ['announcement__title', 'user__first_name', 'user__last_name', 'user__email']
+    readonly_fields = ['read_at']

@@ -162,4 +162,12 @@ urlpatterns = [
     path('finance/salaries/create/', views.salary_create, name='salary_create'),
     path('finance/salaries/<int:pk>/edit/', views.salary_edit, name='salary_edit'),
     path('finance/salaries/<int:pk>/delete/', views.salary_delete, name='salary_delete'),
+
+    # Announcements
+    path('announcements/', views.announcement_list, name='announcement_list'),
+    path('announcements/create/', views.announcement_create, name='announcement_create'),
+    path('announcements/<int:pk>/', views.announcement_detail, name='announcement_detail'),
+    path('announcements/<int:pk>/edit/', views.announcement_edit, name='announcement_edit'),
+    path('announcements/<int:pk>/delete/', views.announcement_delete, name='announcement_delete'),
+    path('announcements/<int:pk>/mark-read/', views.announcement_mark_read, name='announcement_mark_read'),
 ]

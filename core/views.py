@@ -19,7 +19,7 @@ from .forms import (
     SyllabusForm, SyllabusUnitForm, StudentCreateForm, StudentEditForm,
     SchoolPreferencesForm, ProfileUpdateForm, ChangePasswordForm, TimetableForm,
     FeeStructureForm, RecordPaymentForm, BulkInvoiceForm, ExpenseForm, StaffSalaryForm,
-    HomeworkForm,
+    HomeworkForm, AnnouncementForm,
 )
 from .decorators import (
     school_admin_required, teacher_required, accountant_required,
@@ -37,6 +37,7 @@ from .models import (
     Syllabus, SyllabusUnit, DayOfWeekChoices,
     PaymentRecord, Expense, StaffSalary, ExpenseCategoryChoices,
     Homework,
+    Announcement, AnnouncementReadReceipt, AnnouncementAudienceChoices,
 )
 
 def get_request_school(request):
@@ -519,6 +520,7 @@ def dashboard_school_admin(request):
         'role_count': role_count,
         'student_count': student_count,
         'unpaid_invoice_count': unpaid_invoice_count,
+        'recent_announcements': _get_announcements_for_user(user)[:3],
     })
 
 
@@ -541,6 +543,7 @@ def dashboard_teacher(request):
         'sections': managed_sections,
         'today_slots': today_slots,
         'today': today,
+        'recent_announcements': _get_announcements_for_user(user)[:3],
     })
 
 
@@ -638,6 +641,7 @@ def dashboard_student(request):
         'total_due': total_due,
         'total_paid': total_paid,
         'remaining_balance': remaining_balance,
+        'recent_announcements': _get_announcements_for_user(user)[:3],
     })
 
 
@@ -665,6 +669,7 @@ def dashboard_parent(request):
 
     return render(request, 'core/dashboard_parent.html', {
         'children_data': children_data,
+        'recent_announcements': _get_announcements_for_user(user)[:3],
     })
 
 
@@ -2504,3 +2509,174 @@ def student_homework_detail(request, pk, student_id=None):
         'student': student,
         'homework': hw,
     })
+
+
+# ── Announcement Views ───────────────────────────────────────────────────────
+
+def _get_announcements_for_user(user):
+    """
+    Return Announcement queryset filtered to what this user should see,
+    excluding expired items.
+    """
+    from django.utils import timezone
+    now = timezone.now()
+
+    qs = Announcement.objects.select_related('author', 'section', 'section__classroom').filter(
+        Q(expires_at__isnull=True) | Q(expires_at__gt=now)
+    )
+
+    if user.is_superuser or user.is_school_admin:
+        return qs  # Admins see everything in their school
+
+    role = user.primary_role
+    audience_q = Q(audience='all')
+
+    if role == 'student':
+        audience_q |= Q(audience='students')
+        student_profile = getattr(user, 'student_profile', None)
+        if student_profile and student_profile.section_id:
+            audience_q |= Q(audience='section', section_id=student_profile.section_id)
+    elif role == 'parent':
+        audience_q |= Q(audience='parents')
+        children_section_ids = list(
+            Student.unscoped.filter(parent=user).values_list('section_id', flat=True)
+        )
+        if children_section_ids:
+            audience_q |= Q(audience='section', section_id__in=children_section_ids)
+    elif role == 'teacher':
+        audience_q |= Q(audience='teachers')
+        teacher_section_ids = list(
+            Section.objects.filter(
+                Q(class_teacher=user) | Q(timetables__teacher=user)
+            ).values_list('id', flat=True).distinct()
+        )
+        if teacher_section_ids:
+            audience_q |= Q(audience='section', section_id__in=teacher_section_ids)
+    elif role in ('staff', 'accountant', 'librarian'):
+        audience_q |= Q(audience='staff')
+
+    return qs.filter(audience_q)
+
+
+@login_required
+def announcement_list(request):
+    """List all announcements visible to the current user."""
+    announcements = _get_announcements_for_user(request.user)
+
+    # Get set of read announcement IDs for this user
+    read_ids = set(
+        AnnouncementReadReceipt.objects.filter(
+            user=request.user,
+            announcement__in=announcements,
+        ).values_list('announcement_id', flat=True)
+    )
+
+    paginator = Paginator(announcements, 15)
+    page = paginator.get_page(request.GET.get('page'))
+
+    can_create = request.user.is_superuser or request.user.primary_role in ('school_admin', 'teacher')
+
+    return render(request, 'core/announcement_list.html', {
+        'page_obj': page,
+        'read_ids': read_ids,
+        'can_create': can_create,
+    })
+
+
+@login_required
+def announcement_create(request):
+    """Create a new announcement (School Admin or Teacher only)."""
+    user = request.user
+    if not (user.is_superuser or user.primary_role in ('school_admin', 'teacher')):
+        return HttpResponseForbidden('Permission denied.')
+
+    form = AnnouncementForm(request.POST or None, user=user)
+    if request.method == 'POST' and form.is_valid():
+        announcement = form.save(commit=False)
+        announcement.author = user
+        school = get_request_school(request)
+        if school:
+            announcement.school = school
+        announcement.save()
+        messages.success(request, f'Announcement "{announcement.title}" published successfully.')
+        return redirect('core:announcement_list')
+
+    return render(request, 'core/announcement_form.html', {
+        'form': form,
+        'editing': False,
+    })
+
+
+@login_required
+def announcement_detail(request, pk):
+    """View a single announcement and mark it as read."""
+    user = request.user
+    visible_ids = _get_announcements_for_user(user).values_list('id', flat=True)
+    announcement = get_object_or_404(Announcement, pk=pk, id__in=visible_ids)
+
+    # Mark as read
+    AnnouncementReadReceipt.objects.get_or_create(
+        announcement=announcement,
+        user=user,
+    )
+
+    can_edit = (user.is_superuser or user.is_school_admin or announcement.author == user)
+
+    return render(request, 'core/announcement_detail.html', {
+        'announcement': announcement,
+        'can_edit': can_edit,
+    })
+
+
+@login_required
+def announcement_edit(request, pk):
+    """Edit an existing announcement (author or admin only)."""
+    user = request.user
+    announcement = get_object_or_404(Announcement, pk=pk)
+    if not (user.is_superuser or user.is_school_admin or announcement.author == user):
+        return HttpResponseForbidden('Permission denied.')
+
+    form = AnnouncementForm(request.POST or None, instance=announcement, user=user)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, f'Announcement "{announcement.title}" updated.')
+        return redirect('core:announcement_detail', pk=announcement.pk)
+
+    return render(request, 'core/announcement_form.html', {
+        'form': form,
+        'editing': True,
+        'announcement': announcement,
+    })
+
+
+@login_required
+def announcement_delete(request, pk):
+    """Delete an announcement (author or admin only)."""
+    user = request.user
+    announcement = get_object_or_404(Announcement, pk=pk)
+    if not (user.is_superuser or user.is_school_admin or announcement.author == user):
+        return HttpResponseForbidden('Permission denied.')
+
+    if request.method == 'POST':
+        title = announcement.title
+        announcement.delete()
+        messages.success(request, f'Announcement "{title}" deleted.')
+        return redirect('core:announcement_list')
+
+    return render(request, 'core/announcement_confirm_delete.html', {
+        'announcement': announcement,
+    })
+
+
+@login_required
+def announcement_mark_read(request, pk):
+    """AJAX endpoint to mark a single announcement as read."""
+    from django.http import JsonResponse
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    announcement = get_object_or_404(Announcement, pk=pk)
+    AnnouncementReadReceipt.objects.get_or_create(
+        announcement=announcement,
+        user=request.user,
+    )
+    return JsonResponse({'status': 'ok'})

@@ -23,7 +23,8 @@ from core.models import (
     School, User, Role, UserRole, Department,
     ClassRoom, Section, Subject, Student, Staff, Timetable,
     StudentAttendance, Exam, ExamResult, FeeStructure, Invoice,
-    PlatformActivity, ActivityTypeChoices, SubscriptionPlan
+    PlatformActivity, ActivityTypeChoices, SubscriptionPlan,
+    Announcement,
 )
 
 
@@ -370,6 +371,74 @@ class Command(BaseCommand):
             description="Created tenant Sunrise School on Basic Plan and assigned initial admin admin@sunrise.edu",
             defaults={'actor': superadmin}
         )
+
+        # ── Announcements ──────────────────────────────────────────────
+        self.stdout.write(self.style.MIGRATE_HEADING('  Seeding announcements...'))
+
+        # Helper: fetch school-local objects for announcements
+        for school_data in [
+            {
+                'school': school_a,
+                'admin': admin_a,
+                'teacher': teacher_a,
+                'section': section_a,
+            },
+            {
+                'school': school_b,
+                'admin': admin_b,
+                'teacher': teacher_b,
+                'section': section_b,
+            },
+        ]:
+            s = school_data['school']
+            adm = school_data['admin']
+            tchr = school_data.get('teacher') or adm
+            sec = school_data.get('section')
+
+            Announcement.unscoped.get_or_create(
+                school=s,
+                title='School Maintenance Notice',
+                defaults={
+                    'body': 'The school building will be closed for annual maintenance on August 15-16. All classes are suspended during this period. Please plan accordingly.',
+                    'priority': 'urgent',
+                    'audience': 'all',
+                    'author': adm,
+                    'is_pinned': True,
+                },
+            )
+            Announcement.unscoped.get_or_create(
+                school=s,
+                title='Midterm Examinations Schedule',
+                defaults={
+                    'body': 'Midterm exams will commence from August 25th. The detailed schedule has been posted on the notice board. Students should begin preparations immediately.',
+                    'priority': 'important',
+                    'audience': 'students',
+                    'author': adm,
+                },
+            )
+            Announcement.unscoped.get_or_create(
+                school=s,
+                title='Staff Meeting — Thursday 4 PM',
+                defaults={
+                    'body': 'All teachers are required to attend the weekly staff meeting this Thursday at 4:00 PM in the conference room. Agenda includes curriculum review and exam preparation guidelines.',
+                    'priority': 'normal',
+                    'audience': 'teachers',
+                    'author': adm,
+                },
+            )
+            if sec:
+                Announcement.unscoped.get_or_create(
+                    school=s,
+                    title=f'{sec} Field Trip — Science Museum',
+                    defaults={
+                        'body': f'Students of {sec} will have a field trip to the National Science Museum on September 5th. Permission slips will be distributed this week. Please return signed forms by September 1st.',
+                        'priority': 'normal',
+                        'audience': 'section',
+                        'section': sec,
+                        'author': tchr,
+                    },
+                )
+        self.stdout.write('  [+] Demo announcements created')
 
         self.stdout.write(self.style.SUCCESS('\nDemo data seeded successfully!'))
         self.stdout.write(self.style.SUCCESS('=' * 55))

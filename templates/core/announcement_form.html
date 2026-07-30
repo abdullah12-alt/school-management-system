@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}{% if editing %}Edit Announcement{% else %}Create Announcement{% endif %} — SchoolHub{% endblock %}
+{% block page_title %}{% if editing %}Edit Announcement{% else %}New Announcement{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-slate-700">
+            <h3 class="text-base font-bold text-gray-900 dark:text-white">
+                {% if editing %}Edit "{{ announcement.title }}"{% else %}Publish a New Announcement{% endif %}
+            </h3>
+            <p class="text-xs text-gray-500 dark:text-slate-400 mt-1">Announcements are sent to the selected audience immediately.</p>
+        </div>
+
+        <form method="post" class="p-6 space-y-5">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/50 rounded-lg p-3">
+                {% for error in form.non_field_errors %}
+                <p class="text-sm text-red-700 dark:text-red-300">{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Title -->
+            <div>
+                <label for="id_title" class="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1.5">Title</label>
+                {{ form.title }}
+                {% if form.title.errors %}
+                <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.title.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Body -->
+            <div>
+                <label for="id_body" class="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1.5">Message</label>
+                {{ form.body }}
+                {% if form.body.errors %}
+                <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.body.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Priority & Audience (2-column) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                    <label for="id_priority" class="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1.5">Priority</label>
+                    {{ form.priority }}
+                    {% if form.priority.errors %}
+                    <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.priority.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <label for="id_audience" class="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1.5">Audience</label>
+                    {{ form.audience }}
+                    {% if form.audience.errors %}
+                    <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.audience.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Section (shown only when audience = 'section') -->
+            <div id="section-field-wrapper" class="hidden">
+                <label for="id_section" class="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1.5">Section</label>
+                {{ form.section }}
+                {% if form.section.errors %}
+                <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.section.errors.0 }}</p>
+                {% endif %}
+                <p class="mt-1 text-xs text-gray-400 dark:text-slate-500">Only students, parents, and teachers of this section will see the announcement.</p>
+            </div>
+
+            <!-- Expires at -->
+            <div>
+                <label for="id_expires_at" class="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1.5">Expires At <span class="font-normal text-gray-400">(optional)</span></label>
+                {{ form.expires_at }}
+                {% if form.expires_at.errors %}
+                <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.expires_at.errors.0 }}</p>
+                {% endif %}
+                <p class="mt-1 text-xs text-gray-400 dark:text-slate-500">Leave blank to keep the announcement visible indefinitely.</p>
+            </div>
+
+            <!-- Pinned -->
+            <div class="flex items-center gap-3">
+                {{ form.is_pinned }}
+                <label for="id_is_pinned" class="text-sm font-medium text-gray-700 dark:text-slate-300 cursor-pointer">Pin this announcement to the top</label>
+            </div>
+
+            <!-- Submit -->
+            <div class="flex items-center gap-3 pt-2">
+                <button type="submit" class="px-6 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold text-sm rounded-xl transition-colors shadow-sm">
+                    <i data-lucide="{% if editing %}save{% else %}send{% endif %}" class="w-4 h-4 inline mr-1"></i>
+                    {% if editing %}Save Changes{% else %}Publish Announcement{% endif %}
+                </button>
+                <a href="{% url 'core:announcement_list' %}" class="px-5 py-2.5 text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 font-semibold text-sm rounded-xl transition-colors">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Toggle section field visibility based on audience selection
+    function toggleSectionField() {
+        const audience = document.getElementById('id_audience');
+        const wrapper = document.getElementById('section-field-wrapper');
+        if (audience && wrapper) {
+            if (audience.value === 'section') {
+                wrapper.classList.remove('hidden');
+            } else {
+                wrapper.classList.add('hidden');
+            }
+        }
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        toggleSectionField();
+        const audience = document.getElementById('id_audience');
+        if (audience) {
+            audience.addEventListener('change', toggleSectionField);
+        }
+    });
+</script>
+{% endblock %}
