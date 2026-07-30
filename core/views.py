@@ -520,7 +520,7 @@ def dashboard_school_admin(request):
         'role_count': role_count,
         'student_count': student_count,
         'unpaid_invoice_count': unpaid_invoice_count,
-        'recent_announcements': _get_announcements_for_user(user)[:3],
+        'recent_announcements': _get_announcements_for_user(user).select_related('author', 'section', 'section__classroom')[:3],
     })
 
 
@@ -543,7 +543,7 @@ def dashboard_teacher(request):
         'sections': managed_sections,
         'today_slots': today_slots,
         'today': today,
-        'recent_announcements': _get_announcements_for_user(user)[:3],
+        'recent_announcements': _get_announcements_for_user(user).select_related('author', 'section', 'section__classroom')[:3],
     })
 
 
@@ -641,7 +641,7 @@ def dashboard_student(request):
         'total_due': total_due,
         'total_paid': total_paid,
         'remaining_balance': remaining_balance,
-        'recent_announcements': _get_announcements_for_user(user)[:3],
+        'recent_announcements': _get_announcements_for_user(user).select_related('author', 'section', 'section__classroom')[:3],
     })
 
 
@@ -669,7 +669,7 @@ def dashboard_parent(request):
 
     return render(request, 'core/dashboard_parent.html', {
         'children_data': children_data,
-        'recent_announcements': _get_announcements_for_user(user)[:3],
+        'recent_announcements': _get_announcements_for_user(user).select_related('author', 'section', 'section__classroom')[:3],
     })
 
 
@@ -2516,12 +2516,12 @@ def student_homework_detail(request, pk, student_id=None):
 def _get_announcements_for_user(user):
     """
     Return Announcement queryset filtered to what this user should see,
-    excluding expired items.
+    excluding expired items. Does not apply select_related for performance.
     """
     from django.utils import timezone
     now = timezone.now()
 
-    qs = Announcement.objects.select_related('author', 'section', 'section__classroom').filter(
+    qs = Announcement.objects.filter(
         Q(expires_at__isnull=True) | Q(expires_at__gt=now)
     )
 
@@ -2538,20 +2538,14 @@ def _get_announcements_for_user(user):
             audience_q |= Q(audience='section', section_id=student_profile.section_id)
     elif role == 'parent':
         audience_q |= Q(audience='parents')
-        children_section_ids = list(
-            Student.unscoped.filter(parent=user).values_list('section_id', flat=True)
-        )
-        if children_section_ids:
-            audience_q |= Q(audience='section', section_id__in=children_section_ids)
+        children_section_ids = Student.unscoped.filter(parent=user).values_list('section_id', flat=True)
+        audience_q |= Q(audience='section', section_id__in=children_section_ids)
     elif role == 'teacher':
         audience_q |= Q(audience='teachers')
-        teacher_section_ids = list(
-            Section.objects.filter(
-                Q(class_teacher=user) | Q(timetables__teacher=user)
-            ).values_list('id', flat=True).distinct()
-        )
-        if teacher_section_ids:
-            audience_q |= Q(audience='section', section_id__in=teacher_section_ids)
+        teacher_section_ids = Section.objects.filter(
+            Q(class_teacher=user) | Q(timetables__teacher=user)
+        ).values_list('id', flat=True).distinct()
+        audience_q |= Q(audience='section', section_id__in=teacher_section_ids)
     elif role in ('staff', 'accountant', 'librarian'):
         audience_q |= Q(audience='staff')
 
@@ -2561,7 +2555,7 @@ def _get_announcements_for_user(user):
 @login_required
 def announcement_list(request):
     """List all announcements visible to the current user."""
-    announcements = _get_announcements_for_user(request.user)
+    announcements = _get_announcements_for_user(request.user).select_related('author', 'section', 'section__classroom')
 
     # Get set of read announcement IDs for this user
     read_ids = set(
