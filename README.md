@@ -65,7 +65,7 @@ Then open http://127.0.0.1:8000 in your browser.
 
 | Role               | Email                       | Password      | School           |
 |--------------------|-----------------------------|---------------|------------------|
-| Platform Super Admin | admin@Luminead.com       | admin123456   | —                |
+| Platform Super Admin | admin@schoolhub.com       | admin123456   | —                |
 | School Admin       | admin@greenwood.edu         | greenwood123  | Greenwood Academy |
 | Teacher            | james.w@greenwood.edu       | teacher123    | Greenwood Academy |
 | Accountant         | mark.a@greenwood.edu        | account123    | Greenwood Academy |
