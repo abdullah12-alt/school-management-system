@@ -1,5 +1,5 @@
 """
-URL configuration for School Management System.
+URL configuration for Luminead.
 """
 from django.contrib import admin
 from django.urls import path, include

@@ -36,7 +36,7 @@ class Command(BaseCommand):
 
         # ── Platform Super Admin ─────────────────────────────────────
         superadmin, created = User.objects.get_or_create(
-            email='admin@schoolhub.com',
+            email='admin@Luminead.com',
             defaults={
                 'first_name': 'Platform',
                 'last_name': 'Admin',
@@ -47,7 +47,7 @@ class Command(BaseCommand):
         if created:
             superadmin.set_password('admin123456')
             superadmin.save()
-        self.stdout.write('  [+] Platform Admin: admin@schoolhub.com / admin123456')
+        self.stdout.write('  [+] Platform Admin: admin@Luminead.com / admin123456')
 
         # ── Subscription Plans ──────────────────────────────────
         plan_free, _ = SubscriptionPlan.objects.get_or_create(
@@ -444,7 +444,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('=' * 55))
         self.stdout.write(self.style.SUCCESS('DEMO CREDENTIALS'))
         self.stdout.write(self.style.SUCCESS('=' * 55))
-        self.stdout.write('  Platform Admin    | admin@schoolhub.com     | admin123456')
+        self.stdout.write('  Platform Admin    | admin@Luminead.com     | admin123456')
         self.stdout.write('  School Admin (GW) | admin@greenwood.edu     | greenwood123')
         self.stdout.write('  Teacher (GW)      | james.w@greenwood.edu   | teacher123')
         self.stdout.write('  Accountant (GW)   | mark.a@greenwood.edu    | account123')

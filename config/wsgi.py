@@ -1,5 +1,5 @@
 """
-WSGI config for School Management System.
+WSGI config for Luminead.
 """
 import os
 from django.core.wsgi import get_wsgi_application

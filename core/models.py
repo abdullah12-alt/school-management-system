@@ -1,5 +1,5 @@
 """
-Core models for the School Management System.
+Core models for the Luminead.
 
 Hierarchy:
     School (tenant) → Department, Role, User, UserRole, ClassRoom, Section,

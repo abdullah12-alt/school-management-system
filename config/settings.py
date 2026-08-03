@@ -1,5 +1,5 @@
 """
-Django settings for School Management System.
+Django settings for Luminead.
 """
 import os
 from pathlib import Path
