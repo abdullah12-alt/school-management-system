@@ -65,6 +65,12 @@ def login_view(request):
     if request.method == 'POST' and form.is_valid():
         user = form.cleaned_data['user']
         login(request, user)
+        if request.POST.get('remember_me'):
+            # Set session to expire in 2 weeks
+            request.session.set_expiry(1209600)
+        else:
+            # Set session to expire when the browser is closed
+            request.session.set_expiry(0)
         messages.success(request, f'Welcome back, {user.get_full_name()}!')
         return redirect('core:dashboard')
 

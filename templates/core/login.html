@@ -1,109 +1,224 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Sign In — Luminead{% endblock %}
 
 {% block public_content %}
-<div
-    class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-primary-950 to-slate-900 px-4 py-12 relative">
-
-    <!-- Theme Toggle at top right -->
-    <div class="absolute top-4 right-4 z-10">
-        <button onclick="toggleTheme()"
-            class="p-2.5 rounded-xl bg-white/10 text-white hover:bg-white/20 backdrop-blur-md transition-colors flex items-center justify-center"
-            title="Toggle Light/Dark Theme" aria-label="Toggle theme">
-            <i data-lucide="sun" class="w-5 h-5 text-amber-400 hidden dark:block"></i>
-            <i data-lucide="moon" class="w-5 h-5 text-gray-200 block dark:hidden"></i>
-        </button>
-    </div>
-
-    <!-- Background decoration -->
-    <div class="absolute inset-0 overflow-hidden pointer-events-none">
-        <div class="absolute -top-40 -right-40 w-80 h-80 bg-primary-500/10 rounded-full blur-3xl"></div>
-        <div class="absolute -bottom-40 -left-40 w-80 h-80 bg-primary-400/10 rounded-full blur-3xl"></div>
-    </div>
-
-    <div class="relative w-full max-w-md">
-        <!-- Logo / Header -->
-        <div class="text-center mb-8">
-            <div
-                class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 shadow-lg shadow-primary-500/30 mb-4">
-                <i data-lucide="graduation-cap" class="w-8 h-8 text-white"></i>
+<div class="min-h-screen w-full flex bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
+    <!-- Left Section: Abstract Image & Branding (Hidden on Mobile) -->
+    <div class="hidden lg:flex lg:w-1/2 relative bg-primary-900 overflow-hidden">
+        <!-- Background Image -->
+        <img src="{% static 'img/login_bg_abstract.png' %}" alt="Abstract Background" class="absolute inset-0 w-full h-full object-cover opacity-80 mix-blend-overlay">
+        
+        <!-- Gradient Overlay for readability and premium feel -->
+        <div class="absolute inset-0 bg-gradient-to-t from-primary-950/90 via-primary-900/40 to-transparent"></div>
+        
+        <div class="relative z-10 flex flex-col justify-between p-12 lg:p-16 h-full text-white w-full max-w-2xl mx-auto">
+            <!-- Branding -->
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-400 to-primary-600 shadow-lg shadow-primary-500/30 flex items-center justify-center backdrop-blur-sm border border-white/10">
+                    <i data-lucide="graduation-cap" class="w-6 h-6 text-white"></i>
+                </div>
+                <span class="text-2xl font-bold tracking-tight">Luminead</span>
             </div>
-            <h1 class="text-2xl font-bold text-white">Welcome back</h1>
-            <p class="mt-1.5 text-sm text-gray-400">Sign in to your school management account</p>
+            
+            <!-- Marketing Copy -->
+            <div class="mt-auto mb-10">
+                <h2 class="text-4xl lg:text-5xl font-bold mb-6 leading-tight">
+                    Empowering <br>
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-primary-300">
+                        Educational Excellence
+                    </span>
+                </h2>
+                <p class="text-lg text-primary-100 max-w-md leading-relaxed">
+                    The all-in-one platform for schools to manage academics, finance, and administration with unparalleled ease and efficiency.
+                </p>
+            </div>
+            
+            <!-- Abstract decorative elements -->
+            <div class="absolute top-20 right-20 w-64 h-64 bg-primary-500/20 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute bottom-20 -left-10 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        </div>
+    </div>
+
+    <!-- Right Section: Login Form -->
+    <div class="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 relative overflow-hidden">
+        <!-- Theme Toggle -->
+        <div class="absolute top-6 right-6 z-20">
+            <button onclick="toggleTheme()" class="p-2.5 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors flex items-center justify-center border border-gray-200 dark:border-slate-700 shadow-sm" title="Toggle Light/Dark Theme">
+                <i data-lucide="sun" class="w-5 h-5 text-amber-500 hidden dark:block"></i>
+                <i data-lucide="moon" class="w-5 h-5 text-indigo-500 block dark:hidden"></i>
+            </button>
         </div>
 
-        <!-- Login Card -->
-        <div class="bg-white/[0.03] backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-8">
-            <form method="post" action="{% url 'core:login' %}" novalidate>
-                {% csrf_token %}
-
-                <!-- Non-field errors -->
-                {% if form.non_field_errors %}
-                <div class="mb-5 flex items-start gap-3 px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                    <i data-lucide="alert-circle" class="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0"></i>
-                    <div class="text-sm text-red-300">
-                        {% for error in form.non_field_errors %}
-                        <p>{{ error }}</p>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
-
-                <!-- Email field -->
-                <div class="mb-5">
-                    <label for="id_email" class="block text-sm font-semibold text-gray-300 mb-2">
-                        Email Address
-                    </label>
-                    {{ form.email }}
-                    {% if form.email.errors %}
-                    <div class="mt-1.5 flex items-center gap-1.5">
-                        <i data-lucide="alert-circle" class="w-3.5 h-3.5 text-red-400"></i>
-                        {% for error in form.email.errors %}
-                        <p class="text-xs text-red-400">{{ error }}</p>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                </div>
-
-                <!-- Password field -->
-                <div class="mb-6">
-                    <label for="id_password" class="block text-sm font-semibold text-gray-300 mb-2">
-                        Password
-                    </label>
-                    {{ form.password }}
-                    {% if form.password.errors %}
-                    <div class="mt-1.5 flex items-center gap-1.5">
-                        <i data-lucide="alert-circle" class="w-3.5 h-3.5 text-red-400"></i>
-                        {% for error in form.password.errors %}
-                        <p class="text-xs text-red-400">{{ error }}</p>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                </div>
-
-                <!-- Submit -->
-                <button type="submit"
-                    class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white text-sm font-bold shadow-lg shadow-primary-500/30 hover:shadow-primary-500/50 hover:from-primary-500 hover:to-primary-400 transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0">
-                    Sign In
-                </button>
-            </form>
+        <!-- Subtle mobile background decorations -->
+        <div class="lg:hidden absolute inset-0 pointer-events-none">
+            <div class="absolute top-0 right-0 w-64 h-64 bg-primary-500/5 dark:bg-primary-500/10 rounded-full blur-3xl"></div>
+            <div class="absolute bottom-0 left-0 w-64 h-64 bg-amber-500/5 dark:bg-amber-500/10 rounded-full blur-3xl"></div>
         </div>
 
-        <p class="text-center mt-6 text-xs text-gray-500">
-            Luminead &mdash; School Management Platform
-        </p>
+        <div class="w-full max-w-md relative z-10">
+            <!-- Mobile Logo -->
+            <div class="lg:hidden text-center mb-10">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 shadow-lg shadow-primary-500/30 mb-4">
+                    <i data-lucide="graduation-cap" class="w-8 h-8 text-white"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Luminead</h1>
+                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">School Management Platform</p>
+            </div>
+
+            <!-- Form Header -->
+            <div class="mb-8 hidden lg:block">
+                <h2 class="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Welcome back</h2>
+                <p class="mt-2 text-gray-500 dark:text-gray-400">Please sign in to your account to continue.</p>
+            </div>
+            
+            <div class="lg:hidden text-center mb-8">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Sign In</h2>
+            </div>
+
+            <!-- Login Card (Glassmorphic on Dark, Clean on Light) -->
+            <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl border border-gray-100 dark:border-slate-700 shadow-xl dark:shadow-2xl dark:shadow-black/50 p-6 sm:p-8 transition-colors duration-300">
+                <form method="post" action="{% url 'core:login' %}" novalidate class="space-y-5">
+                    {% csrf_token %}
+
+                    <!-- Non-field errors -->
+                    {% if form.non_field_errors %}
+                    <div class="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 animate-fade-in">
+                        <i data-lucide="alert-circle" class="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0"></i>
+                        <div class="text-sm text-red-700 dark:text-red-300">
+                            {% for error in form.non_field_errors %}
+                            <p>{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Email field -->
+                    <div class="group">
+                        <label for="id_email" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-colors">
+                            Email Address
+                        </label>
+                        <div class="relative">
+                            <div class="input-wrapper transition-transform duration-300 origin-left">
+                                {{ form.email }}
+                            </div>
+                        </div>
+                        {% if form.email.errors %}
+                        <div class="mt-2 flex items-center gap-1.5 animate-fade-in">
+                            <i data-lucide="alert-circle" class="w-4 h-4 text-red-500"></i>
+                            {% for error in form.email.errors %}
+                            <p class="text-xs font-medium text-red-600 dark:text-red-400">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Password field -->
+                    <div class="group">
+                        <div class="flex items-center justify-between mb-2">
+                            <label for="id_password" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 transition-colors">
+                                Password
+                            </label>
+                        </div>
+                        <div class="relative">
+                            <div class="input-wrapper transition-transform duration-300 origin-left">
+                                {{ form.password }}
+                            </div>
+                            <button type="button" onclick="togglePasswordVisibility()" class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors focus:outline-none">
+                                <i data-lucide="eye" id="togglePasswordIcon" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                        {% if form.password.errors %}
+                        <div class="mt-2 flex items-center gap-1.5 animate-fade-in">
+                            <i data-lucide="alert-circle" class="w-4 h-4 text-red-500"></i>
+                            {% for error in form.password.errors %}
+                            <p class="text-xs font-medium text-red-600 dark:text-red-400">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Remember Me -->
+                    <div class="flex items-center mt-2">
+                        <input id="remember_me" name="remember_me" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-slate-700 dark:bg-slate-800 dark:ring-offset-slate-900 transition-colors">
+                        <label for="remember_me" class="ml-2 block text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors">
+                            Remember me
+                        </label>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="w-full relative overflow-hidden group py-3.5 px-4 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-bold shadow-lg shadow-gray-900/20 dark:shadow-white/10 hover:shadow-xl hover:shadow-primary-500/20 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 mt-4">
+                        <span class="absolute inset-0 w-full h-full bg-gradient-to-r from-primary-600 to-primary-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 dark:hidden"></span>
+                        <span class="absolute inset-0 w-full h-full bg-gradient-to-r from-primary-400 to-primary-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 hidden dark:block"></span>
+                        <span class="relative flex items-center justify-center gap-2 group-hover:text-white transition-colors duration-300">
+                            Sign In
+                            <i data-lucide="arrow-right" class="w-4 h-4 opacity-70 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300"></i>
+                        </span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Footer -->
+            <p class="text-center mt-8 text-sm text-gray-500 dark:text-gray-400">
+                &copy; 2026 Luminead. All rights reserved.
+            </p>
+        </div>
     </div>
 </div>
 
+<style>
+    /* Custom animation for fading in error messages */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-4px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+        animation: fadeIn 0.3s ease-out forwards;
+    }
+</style>
+
 <script>
-    // Override input styling for the dark login page
-    document.addEventListener('DOMContentLoaded', () => {
-        const inputs = document.querySelectorAll('input[type="email"], input[type="password"]');
-        inputs.forEach(input => {
-            input.className = 'w-full px-4 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white placeholder:text-gray-500 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition duration-200 text-sm outline-none';
-        });
+    function togglePasswordVisibility() {
+        const passwordInput = document.getElementById('id_password');
+        const toggleIcon = document.getElementById('togglePasswordIcon');
+        
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            toggleIcon.setAttribute('data-lucide', 'eye-off');
+        } else {
+            passwordInput.type = 'password';
+            toggleIcon.setAttribute('data-lucide', 'eye');
+        }
         lucide.createIcons();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Apply premium styling to Django form inputs
+        const inputs = document.querySelectorAll('input[type="email"], input[type="password"], input[type="text"]');
+        inputs.forEach(input => {
+            // Remove pl-11 and adjust padding
+            let extraClasses = 'px-4';
+            if (input.id === 'id_password' || input.type === 'password') {
+                extraClasses = 'pl-4 pr-11';
+            }
+            input.className = `w-full py-3.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-900/50 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:bg-white dark:focus:bg-slate-800 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all duration-300 text-sm outline-none shadow-sm ${extraClasses}`;
+            
+            // Optional: Add subtle scale on focus for the wrapper
+            const wrapper = input.closest('.input-wrapper');
+            if(wrapper) {
+                input.addEventListener('focus', () => {
+                    wrapper.classList.add('scale-[1.02]');
+                });
+                input.addEventListener('blur', () => {
+                    wrapper.classList.remove('scale-[1.02]');
+                });
+            }
+        });
+        
+        if (window.lucide) {
+            lucide.createIcons();
+        }
     });
 </script>
 {% endblock %}
