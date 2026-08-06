@@ -53,6 +53,28 @@ def get_request_school(request):
     return get_current_school()
 
 
+# ── Public Views ─────────────────────────────────────────────────────────────
+
+def landing_page(request):
+    """Public landing page with modern 3D UI."""
+    return render(request, 'core/landing.html')
+
+
+def live_demo_login(request):
+    """Auto-log in as the demo school admin."""
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    try:
+        user = User.objects.get(email='admin@greenwood.edu')
+        # Bypassing the authentication backend check by specifying it explicitly
+        login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+        messages.success(request, "Welcome to the Live Demo! You are now logged in as a School Admin.")
+        return redirect('core:dashboard')
+    except User.DoesNotExist:
+        messages.error(request, "Demo account not available. Please sign in normally.")
+        return redirect('core:login')
+
+
 # ── Auth Views ───────────────────────────────────────────────────────────────
 
 def login_view(request):

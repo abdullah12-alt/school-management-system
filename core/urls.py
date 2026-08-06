@@ -11,8 +11,12 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
 
+    # Landing Page & Demo
+    path('', views.landing_page, name='landing_page'),
+    path('demo/', views.live_demo_login, name='live_demo'),
+
     # Dashboard
-    path('', views.dashboard_redirect, name='dashboard'),
+    path('dashboard/', views.dashboard_redirect, name='dashboard'),
     path('dashboard/super-admin/', views.dashboard_superadmin, name='dashboard_superadmin'),
     path('dashboard/school-admin/', views.dashboard_school_admin, name='dashboard_school_admin'),
     path('dashboard/teacher/', views.dashboard_teacher, name='dashboard_teacher'),
