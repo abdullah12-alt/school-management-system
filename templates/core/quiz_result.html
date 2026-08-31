@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Quiz Results — {{ attempt.quiz.title }}{% endblock %}
+{% block page_title %}Quiz Results: {{ attempt.quiz.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div>
+            <h2 class="text-xl font-bold text-gray-900 mb-1">Score: {{ attempt.score }}</h2>
+            <p class="text-sm text-gray-500">Completed on {{ attempt.completed_at|date:"M d, Y, h:i A" }}</p>
+        </div>
+        <a href="{% url 'core:student_quiz_list' %}" class="px-5 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 font-medium rounded-lg transition-colors">
+            Back to Quizzes
+        </a>
+    </div>
+
+    <div class="space-y-4">
+        <h3 class="text-lg font-bold text-gray-900">Your Answers</h3>
+        {% for answer in answers %}
+        <div class="bg-white p-5 rounded-xl border {% if answer.selected_choice.is_correct %}border-emerald-200 bg-emerald-50{% else %}border-rose-200 bg-rose-50{% endif %} shadow-sm">
+            <h4 class="font-semibold text-gray-900 mb-2">{{ forloop.counter }}. {{ answer.question.text }}</h4>
+            <div class="text-sm">
+                <p><strong>Your Answer:</strong> {{ answer.selected_choice.text }}</p>
+                {% if not answer.selected_choice.is_correct %}
+                <p class="text-rose-700 font-medium mt-1">Incorrect. (0 / {{ answer.question.marks }} Marks)</p>
+                {% else %}
+                <p class="text-emerald-700 font-medium mt-1">Correct! ({{ answer.question.marks }} / {{ answer.question.marks }} Marks)</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

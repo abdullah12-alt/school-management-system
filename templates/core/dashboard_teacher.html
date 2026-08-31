@@ -17,13 +17,19 @@
         <a href="{% url 'core:attendance_mark' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-semibold">
             <i data-lucide="calendar-check" class="w-4 h-4"></i> Mark Attendance
         </a>
-        <a href="{% url 'core:exam_list' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold">
+        <a href="{% url 'core:teacher_quiz_create' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors">
+            <i data-lucide="clipboard-list" class="w-4 h-4"></i> Create Quiz
+        </a>
+        <a href="{% url 'core:teacher_study_material_create' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold shadow-sm transition-colors">
+            <i data-lucide="folder-plus" class="w-4 h-4"></i> Upload Material
+        </a>
+        <a href="{% url 'core:exam_list' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold shadow-sm transition-colors">
             <i data-lucide="award" class="w-4 h-4"></i> Exams & Marks
         </a>
-        <a href="{% url 'core:teacher_timetable' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold">
+        <a href="{% url 'core:teacher_timetable' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold shadow-sm transition-colors">
             <i data-lucide="calendar-days" class="w-4 h-4"></i> Timetable
         </a>
-        <a href="{% url 'core:teacher_students' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold">
+        <a href="{% url 'core:teacher_students' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold shadow-sm transition-colors">
             <i data-lucide="graduation-cap" class="w-4 h-4"></i> My Students
         </a>
     </div>

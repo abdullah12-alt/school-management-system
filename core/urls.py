@@ -174,4 +174,24 @@ urlpatterns = [
     path('announcements/<int:pk>/edit/', views.announcement_edit, name='announcement_edit'),
     path('announcements/<int:pk>/delete/', views.announcement_delete, name='announcement_delete'),
     path('announcements/<int:pk>/mark-read/', views.announcement_mark_read, name='announcement_mark_read'),
+
+    # Study Materials
+    path('teacher/study-materials/', views.teacher_study_material_list, name='teacher_study_material_list'),
+    path('teacher/study-materials/create/', views.teacher_study_material_create, name='teacher_study_material_create'),
+    path('teacher/study-materials/<int:pk>/delete/', views.teacher_study_material_delete, name='teacher_study_material_delete'),
+    path('student/study-materials/', views.student_study_material_list, name='student_study_material_list'),
+    path('student/study-materials/<int:student_id>/', views.student_study_material_list, name='student_study_material_list_student'),
+
+    # Online Quizzes
+    path('teacher/quizzes/', views.teacher_quiz_list, name='teacher_quiz_list'),
+    path('teacher/quizzes/create/', views.teacher_quiz_create, name='teacher_quiz_create'),
+    path('teacher/quizzes/<int:pk>/', views.teacher_quiz_detail, name='teacher_quiz_detail'),
+    path('student/quizzes/', views.student_quiz_list, name='student_quiz_list'),
+    path('student/quizzes/<int:student_id>/', views.student_quiz_list, name='student_quiz_list_student'),
+    path('student/quizzes/<int:pk>/take/', views.student_quiz_take, name='student_quiz_take'),
+    path('student/quizzes/<int:pk>/result/', views.student_quiz_result, name='student_quiz_result'),
+
+    # Document Generation (ID Card & Certificates)
+    path('documents/id-card/<int:student_id>/', views.generate_id_card, name='generate_id_card'),
+    path('documents/certificate/<int:student_id>/', views.generate_certificate, name='generate_certificate'),
 ]

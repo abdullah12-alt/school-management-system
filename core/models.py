@@ -1163,3 +1163,86 @@ class AnnouncementReadReceipt(models.Model):
 
     def __str__(self):
         return f"{self.user.get_full_name()} read '{self.announcement.title}'"
+
+
+# ── Study Materials ──────────────────────────────────────────────────────────
+
+class StudyMaterial(TenantModel):
+    """File or link shared by a teacher for a specific section and subject."""
+    section = models.ForeignKey(Section, on_delete=models.CASCADE, related_name='study_materials')
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='study_materials')
+    teacher = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='uploaded_materials')
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    file = models.FileField(upload_to='study_materials/', blank=True, null=True)
+    external_link = models.URLField(blank=True, null=True, help_text="Provide a link if not uploading a file.")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.title} - {self.subject.name} ({self.section})"
+
+
+# ── Online Quizzes & Exams ───────────────────────────────────────────────────
+
+class OnlineQuiz(TenantModel):
+    section = models.ForeignKey(Section, on_delete=models.CASCADE, related_name='quizzes')
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='quizzes')
+    teacher = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='created_quizzes')
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    due_date = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-due_date']
+        verbose_name_plural = 'Online Quizzes'
+
+    def __str__(self):
+        return f"{self.title} ({self.section})"
+
+
+class QuizQuestion(models.Model):
+    quiz = models.ForeignKey(OnlineQuiz, on_delete=models.CASCADE, related_name='questions')
+    text = models.TextField()
+    marks = models.DecimalField(max_digits=5, decimal_places=2, default=1.00)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return f"{self.quiz.title} - Q{self.order}: {self.text[:30]}"
+
+
+class QuizChoice(models.Model):
+    question = models.ForeignKey(QuizQuestion, on_delete=models.CASCADE, related_name='choices')
+    text = models.CharField(max_length=255)
+    is_correct = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.text
+
+
+class QuizAttempt(TenantModel):
+    quiz = models.ForeignKey(OnlineQuiz, on_delete=models.CASCADE, related_name='attempts')
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='quiz_attempts')
+    score = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
+    completed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['quiz', 'student']
+
+    def __str__(self):
+        return f"{self.student} - {self.quiz.title} ({self.score})"
+
+
+class StudentAnswer(models.Model):
+    attempt = models.ForeignKey(QuizAttempt, on_delete=models.CASCADE, related_name='answers')
+    question = models.ForeignKey(QuizQuestion, on_delete=models.CASCADE)
+    selected_choice = models.ForeignKey(QuizChoice, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.attempt.student} - {self.question.id}"

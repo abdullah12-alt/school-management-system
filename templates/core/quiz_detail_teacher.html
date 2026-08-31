@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Manage Quiz — {{ quiz.title }}{% endblock %}
+{% block page_title %}Manage Quiz: {{ quiz.title }}{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Existing Questions -->
+    <div class="lg:col-span-2 space-y-4">
+        <h3 class="text-lg font-bold text-gray-900">Questions ({{ questions.count }})</h3>
+        
+        {% for question in questions %}
+        <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+            <div class="flex justify-between items-start mb-4">
+                <h4 class="font-semibold text-gray-800">{{ question.order }}. {{ question.text }}</h4>
+                <span class="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">{{ question.marks }} Marks</span>
+            </div>
+            <ul class="space-y-2">
+                {% for choice in question.choices.all %}
+                <li class="flex items-center gap-2 text-sm {% if choice.is_correct %}text-emerald-700 font-semibold{% else %}text-gray-600{% endif %}">
+                    {% if choice.is_correct %}
+                    <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                    {% else %}
+                    <i data-lucide="circle" class="w-4 h-4"></i>
+                    {% endif %}
+                    {{ choice.text }}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% empty %}
+        <div class="p-8 text-center bg-white rounded-xl border border-dashed border-gray-300 text-gray-500">
+            No questions added yet.
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Add Question Form -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-max sticky top-6">
+        <h3 class="text-lg font-bold text-gray-900 mb-4">Add Question</h3>
+        <form method="POST" class="space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Question Text</label>
+                {{ q_form.text }}
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Marks</label>
+                    {{ q_form.marks }}
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Order #</label>
+                    {{ q_form.order }}
+                </div>
+            </div>
+
+            <hr class="border-gray-100 my-4">
+            <h4 class="text-sm font-bold text-gray-700 mb-2">Choices</h4>
+            <p class="text-xs text-gray-500 mb-3">Provide up to 4 choices. Check the box for the correct one.</p>
+            
+            {% for i in "1234" %}
+            <div class="flex items-center gap-3 mb-2">
+                <input type="checkbox" name="choice_correct_{{ i }}" class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4" title="Mark as correct">
+                <input type="text" name="choice_text_{{ i }}" placeholder="Choice {{ i }}" class="flex-1 px-3 py-1.5 rounded-lg border border-gray-300 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none">
+            </div>
+            {% endfor %}
+
+            <button type="submit" class="w-full mt-4 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-colors">
+                Save Question
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

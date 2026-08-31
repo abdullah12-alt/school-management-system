@@ -30,12 +30,18 @@
                         <p class="text-xs text-gray-500">Admission #: {{ item.child.admission_number }} &bull; Section: {{ item.child.section }}</p>
                     </div>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2 mt-3 sm:mt-0">
                     <a href="{% url 'core:attendance_history_student' item.child.id %}" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition-colors">
                         Attendance
                     </a>
                     <a href="{% url 'core:exam_results_student' item.child.id %}" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition-colors">
                         Results
+                    </a>
+                    <a href="{% url 'core:student_quiz_list_student' item.child.id %}" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition-colors">
+                        Quizzes
+                    </a>
+                    <a href="{% url 'core:student_study_material_list_student' item.child.id %}" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition-colors">
+                        Materials
                     </a>
                     <a href="{% url 'core:my_invoices_student' item.child.id %}" class="px-3 py-1.5 bg-primary-50 hover:bg-primary-100 text-primary-700 text-xs font-semibold rounded-lg transition-colors">
                         Invoices {% if item.unpaid_count > 0 %}<span class="bg-red-500 text-white rounded-full px-1.5 py-0.5 text-[10px] ml-1">{{ item.unpaid_count }}</span>{% endif %}

@@ -12,6 +12,7 @@ from .models import (
     PaymentRecord, Expense, StaffSalary,
     PaymentMethodChoices, ExpenseCategoryChoices,
     Announcement, AnnouncementPriorityChoices, AnnouncementAudienceChoices,
+    StudyMaterial, OnlineQuiz, QuizQuestion, QuizChoice,
 )
 
 
@@ -1341,6 +1342,14 @@ class AnnouncementForm(forms.ModelForm):
             ).select_related('classroom')
         self.fields['section'].empty_label = '— Select section —'
 
+    def clean_expires_at(self):
+        expires_at = self.cleaned_data.get('expires_at')
+        if expires_at:
+            from django.utils import timezone
+            if expires_at < timezone.now():
+                raise forms.ValidationError("Expiration date and time cannot be in the past.")
+        return expires_at
+
     def clean(self):
         cleaned_data = super().clean()
         audience = cleaned_data.get('audience')
@@ -1350,3 +1359,67 @@ class AnnouncementForm(forms.ModelForm):
         if audience != AnnouncementAudienceChoices.SECTION:
             cleaned_data['section'] = None
         return cleaned_data
+
+
+# ── Study Materials ──────────────────────────────────────────────────────────
+
+class StudyMaterialForm(forms.ModelForm):
+    class Meta:
+        model = StudyMaterial
+        fields = ['section', 'subject', 'title', 'description', 'file', 'external_link']
+        widgets = {
+            'section': forms.Select(attrs={'class': SELECT_CSS}),
+            'subject': forms.Select(attrs={'class': SELECT_CSS}),
+            'title': forms.TextInput(attrs={'class': INPUT_CSS, 'placeholder': 'e.g. Chapter 1 Notes'}),
+            'description': forms.Textarea(attrs={'class': INPUT_CSS, 'rows': 3}),
+            'file': forms.FileInput(attrs={'class': INPUT_CSS}),
+            'external_link': forms.URLInput(attrs={'class': INPUT_CSS, 'placeholder': 'https://...'}),
+        }
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user and user.primary_role == 'teacher':
+            self.fields['section'].queryset = Section.objects.filter(timetables__teacher=user).distinct()
+            self.fields['subject'].queryset = Subject.objects.filter(timetables__teacher=user).distinct()
+
+
+# ── Online Quizzes ───────────────────────────────────────────────────────────
+
+class OnlineQuizForm(forms.ModelForm):
+    class Meta:
+        model = OnlineQuiz
+        fields = ['section', 'subject', 'title', 'description', 'due_date']
+        widgets = {
+            'section': forms.Select(attrs={'class': SELECT_CSS}),
+            'subject': forms.Select(attrs={'class': SELECT_CSS}),
+            'title': forms.TextInput(attrs={'class': INPUT_CSS, 'placeholder': 'e.g. Midterm Quiz'}),
+            'description': forms.Textarea(attrs={'class': INPUT_CSS, 'rows': 3}),
+            'due_date': forms.DateTimeInput(attrs={'class': INPUT_CSS, 'type': 'datetime-local'}),
+        }
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user and user.primary_role == 'teacher':
+            self.fields['section'].queryset = Section.objects.filter(timetables__teacher=user).distinct()
+            self.fields['subject'].queryset = Subject.objects.filter(timetables__teacher=user).distinct()
+
+
+class QuizQuestionForm(forms.ModelForm):
+    class Meta:
+        model = QuizQuestion
+        fields = ['text', 'marks', 'order']
+        widgets = {
+            'text': forms.Textarea(attrs={'class': INPUT_CSS, 'rows': 2, 'placeholder': 'Question text'}),
+            'marks': forms.NumberInput(attrs={'class': INPUT_CSS, 'step': '0.5'}),
+            'order': forms.NumberInput(attrs={'class': INPUT_CSS}),
+        }
+
+
+class QuizChoiceForm(forms.ModelForm):
+    class Meta:
+        model = QuizChoice
+        fields = ['text', 'is_correct']
+        widgets = {
+            'text': forms.TextInput(attrs={'class': INPUT_CSS, 'placeholder': 'Choice text'}),
+            'is_correct': forms.CheckboxInput(attrs={'class': CHECKBOX_CSS}),
+        }

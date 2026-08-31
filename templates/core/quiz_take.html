@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Take Quiz — {{ quiz.title }}{% endblock %}
+{% block page_title %}{{ quiz.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 mb-6">
+        <p class="text-gray-600 mb-2">{{ quiz.description }}</p>
+        <div class="text-sm text-gray-500">
+            <strong>Subject:</strong> {{ quiz.subject.name }} | 
+            <strong>Total Questions:</strong> {{ questions.count }}
+        </div>
+    </div>
+
+    <form method="POST" class="space-y-6">
+        {% csrf_token %}
+        
+        {% for question in questions %}
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <h4 class="text-lg font-semibold text-gray-900 mb-1">
+                {{ forloop.counter }}. {{ question.text }}
+            </h4>
+            <div class="text-xs text-gray-500 mb-4">{{ question.marks }} Marks</div>
+            
+            <div class="space-y-3">
+                {% for choice in question.choices.all %}
+                <label class="flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors">
+                    <input type="radio" name="question_{{ question.id }}" value="{{ choice.id }}" class="text-primary-600 focus:ring-primary-500" required>
+                    <span class="text-sm text-gray-700">{{ choice.text }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+
+        <div class="flex justify-end">
+            <button type="submit" class="px-8 py-3 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl shadow-md transition-all">
+                Submit Quiz
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

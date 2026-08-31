@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Online Quizzes — Luminead{% endblock %}
+{% block page_title %}Online Quizzes{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <p class="text-sm text-gray-500">Manage and take online quizzes.</p>
+        {% if is_teacher %}
+        <a href="{% url 'core:teacher_quiz_create' %}" class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm">
+            <i data-lucide="plus" class="w-4 h-4"></i> Create Quiz
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for quiz in quizzes %}
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col h-full">
+            <h3 class="text-lg font-bold text-gray-900 mb-2">{{ quiz.title }}</h3>
+            <p class="text-sm text-gray-600 mb-4 flex-1">{{ quiz.description }}</p>
+            <div class="text-xs text-gray-500 mb-4">
+                <strong>Subject:</strong> {{ quiz.subject.name }}<br>
+                <strong>Due Date:</strong> {{ quiz.due_date|date:"M d, Y, h:i A" }}<br>
+                <strong>Questions:</strong> {{ quiz.question_count }}
+            </div>
+            
+            <div class="flex items-center gap-3 mt-auto">
+                {% if is_teacher %}
+                <a href="{% url 'core:teacher_quiz_detail' quiz.pk %}" class="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-100 flex-1 text-center">
+                    Manage Questions
+                </a>
+                {% else %}
+                    <!-- Student View -->
+                    {% for q_id, attempt in attempts.items %}
+                        {% if q_id == quiz.id %}
+                        <a href="{% url 'core:student_quiz_result' attempt.pk %}" class="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-100 flex-1 text-center">
+                            View Result (Score: {{ attempt.score }})
+                        </a>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if quiz.id not in attempts %}
+                        <a href="{% url 'core:student_quiz_take' quiz.pk %}" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium flex-1 text-center transition-colors">
+                            Take Quiz
+                        </a>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-span-full py-12 text-center text-gray-500">
+            <i data-lucide="clipboard-list" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+            <p>No quizzes available.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

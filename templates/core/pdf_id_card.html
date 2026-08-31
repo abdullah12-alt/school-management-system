@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Student ID Card - {{ student.user.get_full_name }}</title>
+    <style>
+        @page {
+            size: 85mm 54mm; /* Standard ID card size */
+            margin: 0;
+        }
+        body {
+            font-family: Helvetica, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .card {
+            width: 100%;
+            height: 100%;
+            border: 2px solid {{ school.theme_palette.500|default:"#6366f1" }};
+            border-radius: 10px;
+            box-sizing: border-box;
+            background-color: #ffffff;
+            position: relative;
+            text-align: center;
+        }
+        .header {
+            background-color: {{ school.theme_palette.600|default:"#4f46e5" }};
+            color: #ffffff;
+            padding: 10px;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .photo-placeholder {
+            width: 60px;
+            height: 60px;
+            background-color: #e5e7eb;
+            border: 2px solid #d1d5db;
+            border-radius: 50%;
+            margin: 10px auto;
+        }
+        .name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #1f2937;
+            margin: 5px 0;
+        }
+        .details {
+            font-size: 10px;
+            color: #4b5563;
+            margin-bottom: 2px;
+        }
+        .footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: {{ school.theme_palette.50|default:"#eef2ff" }};
+            padding: 5px;
+            font-size: 8px;
+            color: {{ school.theme_palette.800|default:"#3730a3" }};
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="header">
+            {{ school.name }}
+        </div>
+        <div class="photo-placeholder"></div>
+        <div class="name">{{ student.user.get_full_name }}</div>
+        <div class="details">ID: {{ student.admission_number }}</div>
+        <div class="details">Class: {{ student.section.classroom.name }} - {{ student.section.name }}</div>
+        <div class="details">Role: Student</div>
+        <div class="footer">
+            Property of {{ school.name }}
+        </div>
+    </div>
+</body>
+</html>

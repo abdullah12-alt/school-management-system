@@ -20,6 +20,7 @@ from .forms import (
     SchoolPreferencesForm, ProfileUpdateForm, ChangePasswordForm, TimetableForm,
     FeeStructureForm, RecordPaymentForm, BulkInvoiceForm, ExpenseForm, StaffSalaryForm,
     HomeworkForm, AnnouncementForm,
+    StudyMaterialForm, OnlineQuizForm, QuizQuestionForm, QuizChoiceForm,
 )
 from .decorators import (
     school_admin_required, teacher_required, accountant_required,
@@ -38,7 +39,12 @@ from .models import (
     PaymentRecord, Expense, StaffSalary, ExpenseCategoryChoices,
     Homework,
     Announcement, AnnouncementReadReceipt, AnnouncementAudienceChoices,
+    StudyMaterial, OnlineQuiz, QuizQuestion, QuizChoice, QuizAttempt, StudentAnswer,
 )
+
+import io
+from django.template.loader import get_template
+from xhtml2pdf import pisa
 
 def get_request_school(request):
     """
@@ -2702,3 +2708,166 @@ def announcement_mark_read(request, pk):
         user=request.user,
     )
     return JsonResponse({'status': 'ok'})
+
+
+# ── Study Materials ──────────────────────────────────────────────────────────
+
+@teacher_required
+def teacher_study_material_list(request):
+    materials = StudyMaterial.objects.filter(teacher=request.user)
+    return render(request, 'core/study_material_list.html', {'materials': materials, 'is_teacher': True})
+
+@teacher_required
+def teacher_study_material_create(request):
+    form = StudyMaterialForm(request.POST or None, request.FILES or None, user=request.user)
+    if request.method == 'POST' and form.is_valid():
+        material = form.save(commit=False)
+        material.teacher = request.user
+        material.save()
+        messages.success(request, 'Study material uploaded successfully.')
+        return redirect('core:teacher_study_material_list')
+    return render(request, 'core/study_material_form.html', {'form': form})
+
+@teacher_required
+def teacher_study_material_delete(request, pk):
+    material = get_object_or_404(StudyMaterial, pk=pk, teacher=request.user)
+    if request.method == 'POST':
+        material.delete()
+        messages.success(request, 'Study material deleted.')
+        return redirect('core:teacher_study_material_list')
+    return render(request, 'core/confirm_delete.html', {'object_name': 'Study Material', 'cancel_url': 'core:teacher_study_material_list'})
+
+@student_or_parent_required
+def student_study_material_list(request, student_id=None):
+    if request.user.primary_role == 'parent':
+        student = get_object_or_404(Student, pk=student_id, parent=request.user)
+    else:
+        student = request.user.student_profile
+    materials = StudyMaterial.objects.filter(section=student.section)
+    return render(request, 'core/study_material_list.html', {'materials': materials, 'is_teacher': False})
+
+
+# ── Online Quizzes ───────────────────────────────────────────────────────────
+
+@teacher_required
+def teacher_quiz_list(request):
+    quizzes = OnlineQuiz.objects.filter(teacher=request.user).annotate(question_count=Count('questions'))
+    return render(request, 'core/quiz_list.html', {'quizzes': quizzes, 'is_teacher': True})
+
+@teacher_required
+def teacher_quiz_create(request):
+    form = OnlineQuizForm(request.POST or None, user=request.user)
+    if request.method == 'POST' and form.is_valid():
+        quiz = form.save(commit=False)
+        quiz.teacher = request.user
+        quiz.save()
+        messages.success(request, 'Quiz created. Now add questions.')
+        return redirect('core:teacher_quiz_detail', pk=quiz.pk)
+    return render(request, 'core/quiz_form.html', {'form': form})
+
+@teacher_required
+def teacher_quiz_detail(request, pk):
+    quiz = get_object_or_404(OnlineQuiz, pk=pk, teacher=request.user)
+    questions = quiz.questions.all().prefetch_related('choices')
+    
+    q_form = QuizQuestionForm(request.POST or None)
+    if request.method == 'POST' and q_form.is_valid():
+        q = q_form.save(commit=False)
+        q.quiz = quiz
+        q.save()
+        # Parse choices from POST data (assuming dynamic inputs like choice_text_1, choice_correct_1)
+        for i in range(1, 5):
+            c_text = request.POST.get(f'choice_text_{i}')
+            if c_text:
+                is_corr = request.POST.get(f'choice_correct_{i}') == 'on'
+                QuizChoice.objects.create(question=q, text=c_text, is_correct=is_corr)
+        messages.success(request, 'Question added.')
+        return redirect('core:teacher_quiz_detail', pk=quiz.pk)
+        
+    return render(request, 'core/quiz_detail_teacher.html', {'quiz': quiz, 'questions': questions, 'q_form': q_form})
+
+@student_or_parent_required
+def student_quiz_list(request, student_id=None):
+    if request.user.primary_role == 'parent':
+        student = get_object_or_404(Student, pk=student_id, parent=request.user)
+    else:
+        student = request.user.student_profile
+    quizzes = OnlineQuiz.objects.filter(section=student.section).annotate(question_count=Count('questions'))
+    attempts = {a.quiz_id: a for a in QuizAttempt.objects.filter(student=student)}
+    return render(request, 'core/quiz_list.html', {'quizzes': quizzes, 'attempts': attempts, 'is_teacher': False, 'student_id': student.id})
+
+@login_required
+def student_quiz_take(request, pk):
+    if request.user.primary_role != 'student':
+        return HttpResponseForbidden()
+    student = request.user.student_profile
+    quiz = get_object_or_404(OnlineQuiz, pk=pk, section=student.section)
+    if QuizAttempt.objects.filter(quiz=quiz, student=student).exists():
+        messages.error(request, 'You have already taken this quiz.')
+        return redirect('core:student_quiz_list')
+        
+    questions = quiz.questions.all().prefetch_related('choices')
+    if request.method == 'POST':
+        attempt = QuizAttempt.objects.create(quiz=quiz, student=student)
+        score = 0
+        for q in questions:
+            choice_id = request.POST.get(f'question_{q.id}')
+            if choice_id:
+                choice = get_object_or_404(QuizChoice, pk=choice_id)
+                StudentAnswer.objects.create(attempt=attempt, question=q, selected_choice=choice)
+                if choice.is_correct:
+                    score += q.marks
+        attempt.score = score
+        attempt.save()
+        messages.success(request, f'Quiz completed! Your score: {score}')
+        return redirect('core:student_quiz_result', pk=attempt.pk)
+        
+    return render(request, 'core/quiz_take.html', {'quiz': quiz, 'questions': questions})
+
+@student_or_parent_required
+def student_quiz_result(request, pk):
+    attempt = get_object_or_404(QuizAttempt, pk=pk)
+    # Check permissions
+    if request.user.primary_role == 'parent':
+        if not request.user.children.filter(id=attempt.student_id).exists():
+            return HttpResponseForbidden()
+    elif request.user.primary_role == 'student':
+        if attempt.student != request.user.student_profile:
+            return HttpResponseForbidden()
+    
+    answers = attempt.answers.all().select_related('question', 'selected_choice')
+    return render(request, 'core/quiz_result.html', {'attempt': attempt, 'answers': answers})
+
+
+# ── PDF Generators (ID Card & Certificate) ───────────────────────────────────
+
+def render_to_pdf(template_src, context_dict={}):
+    template = get_template(template_src)
+    html = template.render(context_dict)
+    result = io.BytesIO()
+    pdf = pisa.pisaDocument(io.BytesIO(html.encode("utf-8")), result)
+    if not pdf.err:
+        return HttpResponse(result.getvalue(), content_type='application/pdf')
+    return None
+
+@school_admin_required
+def generate_id_card(request, student_id):
+    student = get_object_or_404(Student, pk=student_id)
+    context = {'student': student, 'school': student.school}
+    pdf = render_to_pdf('core/pdf_id_card.html', context)
+    if pdf:
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="ID_{student.admission_number}.pdf"'
+        return response
+    return HttpResponse("Error Rendering PDF", status=400)
+
+@school_admin_required
+def generate_certificate(request, student_id):
+    student = get_object_or_404(Student, pk=student_id)
+    context = {'student': student, 'school': student.school, 'date': datetime.date.today()}
+    pdf = render_to_pdf('core/pdf_certificate.html', context)
+    if pdf:
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="Certificate_{student.admission_number}.pdf"'
+        return response
+    return HttpResponse("Error Rendering PDF", status=400)
